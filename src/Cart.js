@@ -133,7 +133,7 @@ export default function Cart({ session, bookmarks, onClose, onRemove }) {
       
     try {
       const response = await fetch(
-        `${process.env.REACT_APP_SUPABASE_URL}/functions/v1/send-reminder`,
+        `${process.env.REACT_APP_SUPABASE_URL}/functions/v1/email-reminder`,
         {
           method: 'POST',
           headers: {
