@@ -216,4 +216,9 @@ def run_agent():
     print(f"\n✅ Agent complete. Posted {posted} new listings.")
 
 if __name__ == "__main__":
+    print("🧪 Testing connections...")
+    print(f"Supabase URL: {SUPABASE_URL[:30]}...")
+    print(f"Anthropic key: {ANTHROPIC_API_KEY[:15]}...")
+    existing = get_existing_titles()
+    print(f"Supabase connection: {'✅ OK' if isinstance(existing, set) else '❌ Failed'}")
     run_agent()
