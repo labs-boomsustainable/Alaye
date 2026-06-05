@@ -183,7 +183,7 @@ Return a JSON array. Each object must have:
 - location: city and country or "Global"
 - region: "africa", "europe", "north america", "asia", or "global"
 - field: academic discipline
-- deadline: YYYY-MM-DD or null
+- deadline: YYYY-MM-DD format. Look hard for any date mention — submission date, abstract deadline, conference date, application closes. Use that. Only null if truly no date exists anywhere.
 - funding: funding info or null
 - description: max 200 char summary
 - link: URL
