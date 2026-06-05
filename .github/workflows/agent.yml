@@ -4,15 +4,27 @@ on:
   schedule:
     - cron: '0 6 * * *'
     - cron: '0 18 * * *'
+    - cron: '0 7 * * 1'
+    - cron: '0 8 * * *'
   workflow_dispatch:
+    inputs:
+      job:
+        description: 'Which job to run'
+        required: false
+        default: 'agent'
+        type: choice
+        options:
+          - agent
+          - weekly
+          - urgent
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   run-agent:
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'agent' || github.event_name == 'schedule'
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -23,13 +35,55 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: |
-          pip install anthropic requests beautifulsoup4
+        run: pip install anthropic requests beautifulsoup4
 
       - name: Run Alaye agent
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        run: |
-          python agent/agent.py
+        run: python agent/agent.py
+
+  weekly-digest:
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'weekly'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Send weekly digest
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        run: python agent/email_reminder.py weekly
+
+  urgent-alerts:
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'urgent'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Send urgent alerts
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        run: python agent/email_reminder.py urgent
