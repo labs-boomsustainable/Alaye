@@ -130,28 +130,31 @@ export default function Cart({ session, bookmarks, onClose, onRemove }) {
         </div>
       </body>
       </html>`
-
+      
     try {
-      const response = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${process.env.REACT_APP_RESEND_KEY}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          from: 'Alaye <onboarding@resend.dev>',
-          to: [session.user.email],
-          subject: `Alaye — Your ${listings.length} saved opportunit${listings.length !== 1 ? 'ies' : 'y'}${urgent.length > 0 ? ' 🚨 ' + urgent.length + ' closing soon!' : ''}`,
-          html
-        })
-      })
+      const response = await fetch(
+        `${process.env.REACT_APP_SUPABASE_URL}/functions/v1/send-reminder`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${process.env.REACT_APP_SUPABASE_ANON_KEY}`
+          },
+          body: JSON.stringify({
+            to: session.user.email,
+            subject: `Alaye — Your ${listings.length} saved opportunit${listings.length !== 1 ? 'ies' : 'y'}${urgent.length > 0 ? ' 🚨 ' + urgent.length + ' closing soon!' : ''}`,
+            html
+          })
+        }
+      )
 
-      if (response.ok) {
+      const data = await response.json()
+
+      if (response.ok && data.success) {
         setEmailSent(true)
         showSuccess()
       } else {
-        const data = await response.json()
-        setError(data.message || 'Failed to send email. Try again.')
+        setError(data.error || 'Failed to send email. Try again.')
       }
     } catch (e) {
       setError('Network error. Please try again.')
