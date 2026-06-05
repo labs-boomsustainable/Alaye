@@ -84,11 +84,11 @@ export default function Cart({ session, bookmarks, onClose, onRemove }) {
         </button>
       </div>
 
-      {upcomingCount > 0 && (
+      {listings.length > 0 && (
         <div style={{ background: '#fef9ec', border: '0.5px solid #f0e4b8', borderRadius: 'var(--radius)', padding: '10px 14px', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
           <div style={{ fontSize: 13 }}>
             <i className="ti ti-bell" aria-hidden="true" style={{ color: 'var(--gold)', marginRight: 6 }} />
-            <strong>{upcomingCount}</strong> deadline{upcomingCount > 1 ? 's' : ''} coming up in 30 days
+            <strong>{listings.length}</strong> saved opportunit{listings.length > 1 ? 'ies' : 'y'} · get a deadline summary
           </div>
           <button
             onClick={handleSendReminder}
