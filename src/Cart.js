@@ -43,22 +43,20 @@ export default function Cart({ session, bookmarks, onClose, onRemove }) {
     setListings(prev => prev.filter(l => l.id !== id))
     onRemove(id)
   }
-
+    
   const handleSendReminder = () => {
-    const upcoming = listings.filter(l => {
+    if (listings.length === 0) return
+
+    const lines = listings.map(l => {
       const days = daysLeft(l.deadline)
-      return days !== null && days <= 30 && days >= 0
-    })
-    if (upcoming.length === 0) {
-      alert('No upcoming deadlines in the next 30 days.')
-      return
-    }
-    const lines = upcoming.map(l => {
-      const days = daysLeft(l.deadline)
-      return `• ${l.title} — ${days} days left (${new Date(l.deadline).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })})`
-    }).join('\n')
-    const body = `Hi,\n\nHere are your saved opportunities with upcoming deadlines on Alaye:\n\n${lines}\n\nVisit Alaye to apply: https://alaye-navy.vercel.app\n\nGood luck!`
-    window.open(`mailto:${session.user.email}?subject=Alaye — Upcoming Deadlines&body=${encodeURIComponent(body)}`)
+      const deadlineStr = l.deadline
+        ? `Deadline: ${new Date(l.deadline).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} (${days >= 0 ? days + ' days left' : 'passed'})`
+        : 'Deadline: Not specified'
+      return `• ${l.title}\n  ${l.institution}${l.location ? ' · ' + l.location : ''}\n  ${deadlineStr}\n  ${l.link || 'No link provided'}`
+    }).join('\n\n')
+
+    const body = `Hi,\n\nHere are your saved opportunities from Alaye:\n\n${lines}\n\nVisit Alaye: https://alaye-navy.vercel.app\n\nGood luck with your applications!`
+    window.open(`mailto:${session.user.email}?subject=Alaye — My Saved Opportunities&body=${encodeURIComponent(body)}`)
     setReminderSent(true)
   }
 
