@@ -23,7 +23,6 @@ const REGIONS = [
 
 const ADMINS = [
   'areoluwamide@gmail.com'
-  'labs@boomsustainable.org'
 ]
 
 function badgeClass(type) {
