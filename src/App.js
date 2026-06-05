@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { supabase } from './supabaseClient'
+import Auth from './Auth'
 import './App.css'
 
 const TYPES = [
@@ -18,6 +19,10 @@ const REGIONS = [
   { key: 'north america', label: 'North America' },
   { key: 'asia', label: 'Asia' },
   { key: 'global', label: 'Global / remote' },
+]
+
+const ADMINS = [
+  'olumide@boomsustainable.com'
 ]
 
 function badgeClass(type) {
@@ -49,10 +54,23 @@ export default function App() {
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [toast, setToast] = useState(null)
+  const [session, setSession] = useState(null)
+  const [showAuth, setShowAuth] = useState(false)
+  const [editListing, setEditListing] = useState(null)
   const [form, setForm] = useState({
     type: 'phd', title: '', institution: '', location: '',
     region: 'global', field: '', deadline: '', funding: '', description: '', link: ''
   })
+
+  const isAdmin = session && ADMINS.includes(session.user.email)
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => setSession(session))
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session)
+    })
+    return () => subscription.unsubscribe()
+  }, [])
 
   const showToast = (msg) => {
     setToast(msg)
@@ -83,13 +101,48 @@ export default function App() {
     })
   }
 
+  const handleSignOut = async () => {
+    await supabase.auth.signOut()
+    showToast('Signed out')
+  }
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Delete this listing?')) return
+    const { error } = await supabase.from('listings').delete().eq('id', id)
+    if (!error) { showToast('Listing deleted'); fetchListings() }
+    else showToast('Error deleting listing')
+  }
+
+  const handleVerify = async (id, current) => {
+    const { error } = await supabase.from('listings').update({ verified: !current }).eq('id', id)
+    if (!error) { showToast(current ? 'Unverified' : 'Verified!'); fetchListings() }
+  }
+
+  const openEdit = (listing) => {
+    setEditListing(listing)
+    setForm({
+      type: listing.type,
+      title: listing.title,
+      institution: listing.institution,
+      location: listing.location || '',
+      region: listing.region || 'global',
+      field: listing.field || '',
+      deadline: listing.deadline || '',
+      funding: listing.funding || '',
+      description: listing.description || '',
+      link: listing.link || '',
+    })
+    setModal(true)
+    setSubmitted(false)
+  }
+
   const handleSubmit = async () => {
     if (!form.title.trim() || !form.institution.trim()) {
       showToast('Please fill in title and institution')
       return
     }
     setSubmitting(true)
-    const { error } = await supabase.from('listings').insert([{
+    const payload = {
       type: form.type,
       title: form.title.trim(),
       institution: form.institution.trim(),
@@ -100,9 +153,15 @@ export default function App() {
       funding: form.funding.trim() || null,
       description: form.description.trim() || null,
       link: form.link.trim() || null,
-      source: 'community',
-      verified: false,
-    }])
+    }
+    let error
+    if (editListing) {
+      const res = await supabase.from('listings').update(payload).eq('id', editListing.id)
+      error = res.error
+    } else {
+      const res = await supabase.from('listings').insert([{ ...payload, source: session ? 'community' : 'community', verified: false }])
+      error = res.error
+    }
     setSubmitting(false)
     if (error) { showToast('Something went wrong. Try again.'); return }
     setSubmitted(true)
@@ -110,17 +169,34 @@ export default function App() {
   }
 
   const openModal = () => {
+    if (!session) { setShowAuth(true); return }
+    setEditListing(null)
     setModal(true)
     setSubmitted(false)
     setForm({ type: 'phd', title: '', institution: '', location: '', region: 'global', field: '', deadline: '', funding: '', description: '', link: '' })
   }
-  const closeModal = () => setModal(false)
+  const closeModal = () => { setModal(false); setEditListing(null) }
 
   return (
     <div className="wrap">
       <div className="hero">
-        <div className="wordmark">Alaye<span>.</span></div>
-        <div className="tagline">Open Academic Opportunities · Global</div>
+        <div className="hero-top">
+          <div>
+            <div className="wordmark">Alaye<span>.</span></div>
+            <div className="tagline">Open Academic Opportunities · Global</div>
+          </div>
+          <div className="hero-auth">
+            {session ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                {isAdmin && <span className="admin-badge"><i className="ti ti-shield-check" aria-hidden="true" /> Admin</span>}
+                <span style={{ fontSize: 12, opacity: 0.6 }}>{session.user.email}</span>
+                <button className="btn-ghost" onClick={handleSignOut}>Sign out</button>
+              </div>
+            ) : (
+              <button className="btn-ghost" onClick={() => setShowAuth(true)}>Sign in</button>
+            )}
+          </div>
+        </div>
         <div className="hero-desc">PhD positions, postdocs, grants, open paper calls and conferences — in one clean place, for everyone.</div>
         <div className="hero-actions">
           <button className="btn-primary" onClick={openModal}>
@@ -196,9 +272,24 @@ export default function App() {
                   <div className="card-title">{l.title}</div>
                   <div className="card-inst">{l.institution}</div>
                 </div>
-                <button className={`btn-save${saved.has(l.id) ? ' saved' : ''}`} onClick={() => handleSave(l.id)} aria-label="Save listing">
-                  <i className="ti ti-bookmark" aria-hidden="true" />
-                </button>
+                <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                  {isAdmin && (
+                    <>
+                      <button className="btn-admin" onClick={() => handleVerify(l.id, l.verified)} title={l.verified ? 'Unverify' : 'Verify'}>
+                        <i className={`ti ${l.verified ? 'ti-circle-x' : 'ti-circle-check'}`} aria-hidden="true" />
+                      </button>
+                      <button className="btn-admin" onClick={() => openEdit(l)} title="Edit">
+                        <i className="ti ti-edit" aria-hidden="true" />
+                      </button>
+                      <button className="btn-admin btn-admin-danger" onClick={() => handleDelete(l.id)} title="Delete">
+                        <i className="ti ti-trash" aria-hidden="true" />
+                      </button>
+                    </>
+                  )}
+                  <button className={`btn-save${saved.has(l.id) ? ' saved' : ''}`} onClick={() => handleSave(l.id)} aria-label="Save listing">
+                    <i className="ti ti-bookmark" aria-hidden="true" />
+                  </button>
+                </div>
               </div>
               <div className="card-meta">
                 {l.location && <span className="meta-item"><i className="ti ti-map-pin" aria-hidden="true" />{l.location}</span>}
@@ -223,13 +314,19 @@ export default function App() {
         })}
       </div>
 
+      {showAuth && (
+        <div className="overlay" onClick={e => e.target.className === 'overlay' && setShowAuth(false)}>
+          <Auth onClose={() => setShowAuth(false)} />
+        </div>
+      )}
+
       {modal && (
         <div className="overlay" onClick={e => e.target.className === 'overlay' && closeModal()}>
           <div className="modal">
             {!submitted ? (
               <>
                 <div className="modal-hdr">
-                  <div className="modal-title">Post an opportunity</div>
+                  <div className="modal-title">{editListing ? 'Edit listing' : 'Post an opportunity'}</div>
                   <button className="btn-close" onClick={closeModal}><i className="ti ti-x" aria-hidden="true" /></button>
                 </div>
                 <div className="form-group">
@@ -289,13 +386,15 @@ export default function App() {
                   <input placeholder="https://…" value={form.link} onChange={e => setForm(f => ({ ...f, link: e.target.value }))} />
                 </div>
                 <button className="btn-submit" onClick={handleSubmit} disabled={submitting}>
-                  {submitting ? 'Posting…' : 'Post listing →'}
+                  {submitting ? 'Saving…' : editListing ? 'Save changes →' : 'Post listing →'}
                 </button>
               </>
             ) : (
               <div className="success">
                 <i className="ti ti-circle-check" aria-hidden="true" />
-                <div style={{ fontFamily: 'Lora, serif', fontSize: 18, fontWeight: 500 }}>Listing posted!</div>
+                <div style={{ fontFamily: 'Lora, serif', fontSize: 18, fontWeight: 500 }}>
+                  {editListing ? 'Listing updated!' : 'Listing posted!'}
+                </div>
                 <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 8 }}>Your opportunity is now live on the Alaye board.</p>
                 <button className="btn-primary" style={{ marginTop: '1.5rem' }} onClick={closeModal}>Back to listings</button>
               </div>
