@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { supabase } from './supabaseClient'
 import Auth from './Auth'
+import Cart from './Cart'
 import './App.css'
 
 const TYPES = [
@@ -49,35 +50,38 @@ export default function App() {
   const [region, setRegion] = useState('all')
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState('newest')
-  const [saved, setSaved] = useState(new Set())
   const [modal, setModal] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [toast, setToast] = useState(null)
   const [session, setSession] = useState(null)
   const [showAuth, setShowAuth] = useState(false)
+  const [showCart, setShowCart] = useState(false)
   const [editListing, setEditListing] = useState(null)
+  const [bookmarks, setBookmarks] = useState(new Set())
   const [form, setForm] = useState({
     type: 'phd', title: '', institution: '', location: '',
     region: 'global', field: '', deadline: '', funding: '', description: '', link: ''
   })
 
   const isAdmin = session && ADMINS.includes(session.user.email)
-    
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-    })
 
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => setSession(session))
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session)
-      if (event === 'SIGNED_IN') {
-        window.history.replaceState({}, document.title, '/')
-      }
+      if (event === 'SIGNED_IN') window.history.replaceState({}, document.title, '/')
     })
-
     return () => subscription.unsubscribe()
   }, [])
+
+  const fetchBookmarks = useCallback(async () => {
+    if (!session) { setBookmarks(new Set()); return }
+    const { data } = await supabase.from('bookmarks').select('listing_id')
+    if (data) setBookmarks(new Set(data.map(b => b.listing_id)))
+  }, [session])
+
+  useEffect(() => { fetchBookmarks() }, [fetchBookmarks])
 
   const showToast = (msg) => {
     setToast(msg)
@@ -99,17 +103,22 @@ export default function App() {
 
   useEffect(() => { fetchListings() }, [fetchListings])
 
-  const handleSave = (id) => {
-    setSaved(prev => {
-      const next = new Set(prev)
-      if (next.has(id)) { next.delete(id); showToast('Removed from saved') }
-      else { next.add(id); showToast('Saved!') }
-      return next
-    })
+  const handleBookmark = async (id) => {
+    if (!session) { setShowAuth(true); return }
+    if (bookmarks.has(id)) {
+      await supabase.from('bookmarks').delete().eq('listing_id', id)
+      setBookmarks(prev => { const n = new Set(prev); n.delete(id); return n })
+      showToast('Removed from cart')
+    } else {
+      await supabase.from('bookmarks').insert([{ user_id: session.user.id, listing_id: id }])
+      setBookmarks(prev => new Set([...prev, id]))
+      showToast('Added to your cart!')
+    }
   }
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
+    setBookmarks(new Set())
     showToast('Signed out')
   }
 
@@ -128,16 +137,11 @@ export default function App() {
   const openEdit = (listing) => {
     setEditListing(listing)
     setForm({
-      type: listing.type,
-      title: listing.title,
-      institution: listing.institution,
-      location: listing.location || '',
-      region: listing.region || 'global',
-      field: listing.field || '',
-      deadline: listing.deadline || '',
-      funding: listing.funding || '',
-      description: listing.description || '',
-      link: listing.link || '',
+      type: listing.type, title: listing.title,
+      institution: listing.institution, location: listing.location || '',
+      region: listing.region || 'global', field: listing.field || '',
+      deadline: listing.deadline || '', funding: listing.funding || '',
+      description: listing.description || '', link: listing.link || '',
     })
     setModal(true)
     setSubmitted(false)
@@ -150,23 +154,18 @@ export default function App() {
     }
     setSubmitting(true)
     const payload = {
-      type: form.type,
-      title: form.title.trim(),
-      institution: form.institution.trim(),
-      location: form.location.trim() || null,
-      region: form.region,
-      field: form.field.trim() || null,
-      deadline: form.deadline || null,
-      funding: form.funding.trim() || null,
-      description: form.description.trim() || null,
-      link: form.link.trim() || null,
+      type: form.type, title: form.title.trim(),
+      institution: form.institution.trim(), location: form.location.trim() || null,
+      region: form.region, field: form.field.trim() || null,
+      deadline: form.deadline || null, funding: form.funding.trim() || null,
+      description: form.description.trim() || null, link: form.link.trim() || null,
     }
     let error
     if (editListing) {
       const res = await supabase.from('listings').update(payload).eq('id', editListing.id)
       error = res.error
     } else {
-      const res = await supabase.from('listings').insert([{ ...payload, source: session ? 'community' : 'community', verified: false }])
+      const res = await supabase.from('listings').insert([{ ...payload, source: 'community', verified: false }])
       error = res.error
     }
     setSubmitting(false)
@@ -196,11 +195,17 @@ export default function App() {
             {session ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 {isAdmin && <span className="admin-badge"><i className="ti ti-shield-check" aria-hidden="true" /> Admin</span>}
+                <button className="cart-btn" onClick={() => setShowCart(true)}>
+                  <i className="ti ti-bookmark" aria-hidden="true" />
+                  {bookmarks.size > 0 && <span className="cart-count">{bookmarks.size}</span>}
+                </button>
                 <span style={{ fontSize: 12, opacity: 0.6 }}>{session.user.email}</span>
                 <button className="btn-ghost" onClick={handleSignOut}>Sign out</button>
               </div>
             ) : (
-              <button className="btn-ghost" onClick={() => setShowAuth(true)}>Sign in</button>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn-ghost" onClick={() => setShowAuth(true)}>Sign in</button>
+              </div>
             )}
           </div>
         </div>
@@ -266,6 +271,7 @@ export default function App() {
           const days = daysLeft(l.deadline)
           const urgent = days !== null && days <= 14 && days >= 0
           const isNew = (new Date() - new Date(l.created_at)) < 1000 * 60 * 60 * 48
+          const isBookmarked = bookmarks.has(l.id)
           return (
             <div key={l.id} className={`card${l.featured ? ' featured' : ''}`}>
               <div className="card-top">
@@ -293,8 +299,13 @@ export default function App() {
                       </button>
                     </>
                   )}
-                  <button className={`btn-save${saved.has(l.id) ? ' saved' : ''}`} onClick={() => handleSave(l.id)} aria-label="Save listing">
-                    <i className="ti ti-bookmark" aria-hidden="true" />
+                  <button
+                    className={`btn-save${isBookmarked ? ' saved' : ''}`}
+                    onClick={() => handleBookmark(l.id)}
+                    aria-label={isBookmarked ? 'Remove from cart' : 'Save to cart'}
+                    title={session ? (isBookmarked ? 'Remove from cart' : 'Save to cart') : 'Sign in to save'}
+                  >
+                    <i className={`ti ${isBookmarked ? 'ti-bookmark-filled' : 'ti-bookmark'}`} aria-hidden="true" />
                   </button>
                 </div>
               </div>
@@ -324,6 +335,19 @@ export default function App() {
       {showAuth && (
         <div className="overlay" onClick={e => e.target.className === 'overlay' && setShowAuth(false)}>
           <Auth onClose={() => setShowAuth(false)} />
+        </div>
+      )}
+
+      {showCart && (
+        <div className="overlay" onClick={e => e.target.className === 'overlay' && setShowCart(false)}>
+          <Cart
+            session={session}
+            bookmarks={bookmarks}
+            onClose={() => setShowCart(false)}
+            onRemove={(id) => {
+              setBookmarks(prev => { const n = new Set(prev); n.delete(id); return n })
+            }}
+          />
         </div>
       )}
 
