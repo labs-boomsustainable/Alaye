@@ -44,26 +44,21 @@ export default function Cart({ session, bookmarks, onClose, onRemove }) {
     onRemove(id)
   }
 
-  const handleSendReminder = async () => {
+  const handleSendReminder = () => {
     const upcoming = listings.filter(l => {
       const days = daysLeft(l.deadline)
       return days !== null && days <= 30 && days >= 0
     })
-
     if (upcoming.length === 0) {
       alert('No upcoming deadlines in the next 30 days.')
       return
     }
-
     const lines = upcoming.map(l => {
       const days = daysLeft(l.deadline)
       return `• ${l.title} — ${days} days left (${new Date(l.deadline).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })})`
     }).join('\n')
-
     const body = `Hi,\n\nHere are your saved opportunities with upcoming deadlines on Alaye:\n\n${lines}\n\nVisit Alaye to apply: https://alaye-navy.vercel.app\n\nGood luck!`
-
-    const mailto = `mailto:${session.user.email}?subject=Alaye — Upcoming Deadlines&body=${encodeURIComponent(body)}`
-    window.open(mailto)
+    window.open(`mailto:${session.user.email}?subject=Alaye — Upcoming Deadlines&body=${encodeURIComponent(body)}`)
     setReminderSent(true)
   }
 
@@ -90,35 +85,14 @@ export default function Cart({ session, bookmarks, onClose, onRemove }) {
       </div>
 
       {upcomingCount > 0 && (
-        <div style={{
-          background: '#fef9ec',
-          border: '0.5px solid #f0e4b8',
-          borderRadius: 'var(--radius)',
-          padding: '10px 14px',
-          marginBottom: '1.25rem',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 12
-        }}>
+        <div style={{ background: '#fef9ec', border: '0.5px solid #f0e4b8', borderRadius: 'var(--radius)', padding: '10px 14px', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
           <div style={{ fontSize: 13 }}>
             <i className="ti ti-bell" aria-hidden="true" style={{ color: 'var(--gold)', marginRight: 6 }} />
             <strong>{upcomingCount}</strong> deadline{upcomingCount > 1 ? 's' : ''} coming up in 30 days
           </div>
           <button
             onClick={handleSendReminder}
-            style={{
-              background: 'var(--gold)',
-              color: 'var(--ink)',
-              border: 'none',
-              padding: '6px 14px',
-              borderRadius: 'var(--radius)',
-              fontSize: 12,
-              fontWeight: 500,
-              cursor: 'pointer',
-              fontFamily: 'inherit',
-              whiteSpace: 'nowrap'
-            }}
+            style={{ background: 'var(--gold)', color: 'var(--ink)', border: 'none', padding: '6px 14px', borderRadius: 'var(--radius)', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}
           >
             {reminderSent ? '✅ Sent!' : 'Email me reminders'}
           </button>
@@ -133,21 +107,8 @@ export default function Cart({ session, bookmarks, onClose, onRemove }) {
           <div style={{ marginBottom: 8 }}>No saved opportunities yet</div>
           <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>
             Click the bookmark icon on any listing to save it here.
-            Sign-in users get deadline reminders too.
           </p>
-          <button
-            onClick={onClose}
-            style={{
-              marginTop: 16,
-              background: 'none',
-              border: 'none',
-              color: 'var(--teal)',
-              cursor: 'pointer',
-              fontFamily: 'inherit',
-              fontSize: 14,
-              textDecoration: 'underline'
-            }}
-          >
+          <button onClick={onClose} style={{ marginTop: 16, background: 'none', border: 'none', color: 'var(--teal)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, textDecoration: 'underline' }}>
             Browse opportunities
           </button>
         </div>
@@ -157,36 +118,20 @@ export default function Cart({ session, bookmarks, onClose, onRemove }) {
             const days = daysLeft(l.deadline)
             const color = urgencyColor(days)
             return (
-              <div key={l.id} style={{
-                background: 'var(--color-background-secondary, #f9f9f9)',
-                border: '0.5px solid var(--border)',
-                borderRadius: 'var(--radius)',
-                padding: '12px 14px',
-              }}>
+              <div key={l.id} style={{ background: '#f9f9f7', border: '0.5px solid var(--border)', borderRadius: 'var(--radius)', padding: '12px 14px' }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
                   <div style={{ flex: 1 }}>
-                    <div style={{
-                      fontFamily: 'Lora, serif',
-                      fontSize: 14,
-                      fontWeight: 500,
-                      lineHeight: 1.4,
-                      marginBottom: 4,
-                      color: 'var(--ink)'
-                    }}>
+                    <div style={{ fontFamily: 'Lora, serif', fontSize: 14, fontWeight: 500, lineHeight: 1.4, marginBottom: 4, color: 'var(--ink)' }}>
                       {l.title}
                     </div>
                     <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>
-                      {l.institution}
-                      {l.location && ` · ${l.location}`}
+                      {l.institution}{l.location && ` · ${l.location}`}
                     </div>
                     <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                       {l.deadline && (
                         <span style={{ fontSize: 12, color, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 3 }}>
                           <i className="ti ti-calendar" aria-hidden="true" style={{ fontSize: 13 }} />
-                          {days !== null && days >= 0
-                            ? `${days} days left`
-                            : 'Deadline passed'
-                          }
+                          {days !== null && days >= 0 ? `${days} days left` : 'Deadline passed'}
                           {' '}· {new Date(l.deadline).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
                         </span>
                       )}
@@ -200,16 +145,7 @@ export default function Cart({ session, bookmarks, onClose, onRemove }) {
                   </div>
                   <button
                     onClick={() => handleRemove(l.id)}
-                    style={{
-                      background: 'none',
-                      border: '0.5px solid var(--border)',
-                      borderRadius: 'var(--radius)',
-                      padding: '4px 8px',
-                      cursor: 'pointer',
-                      fontSize: 12,
-                      color: 'var(--muted)',
-                      flexShrink: 0
-                    }}
+                    style={{ background: 'none', border: '0.5px solid var(--border)', borderRadius: 'var(--radius)', padding: '4px 8px', cursor: 'pointer', fontSize: 12, color: 'var(--muted)', flexShrink: 0 }}
                     title="Remove from cart"
                   >
                     <i className="ti ti-x" aria-hidden="true" />
@@ -217,12 +153,7 @@ export default function Cart({ session, bookmarks, onClose, onRemove }) {
                 </div>
                 {l.link && (
                   <div style={{ marginTop: 10, paddingTop: 8, borderTop: '0.5px solid var(--border)' }}>
-                    
-                      href={l.link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ fontSize: 13, color: 'var(--teal)', fontWeight: 500, textDecoration: 'none' }}
-                    >
+                    <a href={l.link} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: 'var(--teal)', fontWeight: 500, textDecoration: 'none' }}>
                       View & apply <i className="ti ti-arrow-up-right" aria-hidden="true" style={{ fontSize: 12 }} />
                     </a>
                   </div>
@@ -235,7 +166,7 @@ export default function Cart({ session, bookmarks, onClose, onRemove }) {
 
       {listings.length > 0 && (
         <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '0.5px solid var(--border)', fontSize: 12, color: 'var(--muted)', textAlign: 'center' }}>
-          Listings are sorted by deadline — closest first
+          Sorted by deadline — closest first
         </div>
       )}
     </div>
