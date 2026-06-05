@@ -62,11 +62,6 @@ export default function Cart({ session, bookmarks, onClose, onRemove }) {
     setReminderSent(true)
   }
 
-  const upcomingCount = listings.filter(l => {
-    const d = daysLeft(l.deadline)
-    return d !== null && d <= 30 && d >= 0
-  }).length
-
   return (
     <div className="modal" style={{ maxWidth: 560 }}>
       <div className="modal-hdr">
