@@ -63,12 +63,19 @@ export default function App() {
   })
 
   const isAdmin = session && ADMINS.includes(session.user.email)
-
+    
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => setSession(session))
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
     })
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setSession(session)
+      if (event === 'SIGNED_IN') {
+        window.history.replaceState({}, document.title, '/')
+      }
+    })
+
     return () => subscription.unsubscribe()
   }, [])
 
