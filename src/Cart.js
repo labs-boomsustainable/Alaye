@@ -8,7 +8,7 @@ function daysLeft(deadline) {
 
 function urgencyColor(days) {
   if (days === null) return 'var(--muted)'
-  if (days <= 7) return '#dc2626'
+  if (days <= 5) return '#dc2626'
   if (days <= 14) return '#d97706'
   return 'var(--teal)'
 }
@@ -16,7 +16,9 @@ function urgencyColor(days) {
 export default function Cart({ session, bookmarks, onClose, onRemove }) {
   const [listings, setListings] = useState([])
   const [loading, setLoading] = useState(true)
-  const [reminderSent, setReminderSent] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [emailSent, setEmailSent] = useState(false)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
     if (bookmarks.size === 0) { setListings([]); setLoading(false); return }
@@ -43,21 +45,123 @@ export default function Cart({ session, bookmarks, onClose, onRemove }) {
     setListings(prev => prev.filter(l => l.id !== id))
     onRemove(id)
   }
-    
-  const handleSendReminder = () => {
-    if (listings.length === 0) return
 
-    const lines = listings.map(l => {
-      const days = daysLeft(l.deadline)
+  const handleSendEmail = async () => {
+    if (!session || listings.length === 0) return
+    setSending(true)
+    setError(null)
+
+    const urgent = listings.filter(l => {
+      const d = daysLeft(l.deadline)
+      return d !== null && d >= 0 && d <= 5
+    })
+    const upcoming = listings.filter(l => {
+      const d = daysLeft(l.deadline)
+      return d !== null && d > 5 && d <= 30
+    })
+    const rest = listings.filter(l => {
+      const d = daysLeft(l.deadline)
+      return d === null || d > 30 || d < 0
+    })
+
+    const typeLabels = { phd: 'PhD', postdoc: 'Postdoc', paper: 'Paper Call', grant: 'Grant', conf: 'Conference' }
+
+    const cardHtml = (l) => {
+      const d = daysLeft(l.deadline)
+      const deadlineColor = d !== null && d <= 5 ? '#dc2626' : d !== null && d <= 14 ? '#d97706' : '#0f6e56'
       const deadlineStr = l.deadline
-        ? `Deadline: ${new Date(l.deadline).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} (${days >= 0 ? days + ' days left' : 'passed'})`
-        : 'Deadline: Not specified'
-      return `• ${l.title}\n  ${l.institution}${l.location ? ' · ' + l.location : ''}\n  ${deadlineStr}\n  ${l.link || 'No link provided'}`
-    }).join('\n\n')
+        ? d >= 0 ? `${d} days left — ${new Date(l.deadline).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}` : 'Deadline passed'
+        : 'No deadline specified'
+      return `
+        <div style="background:#ffffff;border:1px solid #e8e0d4;border-radius:10px;padding:18px 20px;margin-bottom:12px;">
+          <span style="background:#f0e4b8;color:#7a5800;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;">${typeLabels[l.type] || 'Opportunity'}</span>
+          <div style="font-family:Georgia,serif;font-size:16px;font-weight:600;color:#1a1612;margin:10px 0 4px;">${l.title}</div>
+          <div style="font-size:13px;color:#6b6358;margin-bottom:6px;">${l.institution}${l.location ? ' · ' + l.location : ''}</div>
+          ${l.field ? `<div style="font-size:13px;color:#6b6358;margin-bottom:4px;">📚 ${l.field}</div>` : ''}
+          ${l.funding ? `<div style="font-size:13px;color:#6b6358;margin-bottom:8px;">💰 ${l.funding}</div>` : ''}
+          <div style="font-size:13px;font-weight:600;color:${deadlineColor};margin-bottom:${l.description ? '8px' : '12px'};">⏰ ${deadlineStr}</div>
+          ${l.description ? `<div style="font-size:13px;color:#555;line-height:1.6;margin-bottom:12px;">${l.description}</div>` : ''}
+          ${l.link ? `<a href="${l.link}" style="background:#0f6e56;color:#ffffff;text-decoration:none;padding:8px 18px;border-radius:8px;font-size:13px;font-weight:500;">View & Apply →</a>` : ''}
+        </div>`
+    }
 
-    const body = `Hi,\n\nHere are your saved opportunities from Alaye:\n\n${lines}\n\nVisit Alaye: https://alaye-navy.vercel.app\n\nGood luck with your applications!`
-    window.open(`mailto:${session.user.email}?subject=Alaye — My Saved Opportunities&body=${encodeURIComponent(body)}`)
-    setReminderSent(true)
+    const urgentSection = urgent.length > 0 ? `
+      <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:14px 18px;margin-bottom:16px;">
+        <div style="font-size:14px;font-weight:600;color:#dc2626;">🚨 Act now — deadline in 5 days or less</div>
+        <div style="font-size:13px;color:#7f1d1d;margin-top:4px;">These opportunities are closing very soon.</div>
+      </div>
+      ${urgent.map(cardHtml).join('')}
+      <div style="font-family:Georgia,serif;font-size:15px;font-weight:600;color:#1a1612;margin:20px 0 12px;">📅 Coming up in the next 30 days</div>
+    ` : ''
+
+    const upcomingSection = upcoming.map(cardHtml).join('')
+    const restSection = rest.length > 0 ? `
+      <div style="font-family:Georgia,serif;font-size:15px;font-weight:600;color:#1a1612;margin:20px 0 12px;">📌 Your other saved opportunities</div>
+      ${rest.map(cardHtml).join('')}
+    ` : ''
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+      <body style="margin:0;padding:0;background:#f2ede6;font-family:Arial,sans-serif;">
+        <div style="max-width:600px;margin:0 auto;padding:32px 16px;">
+          <div style="background:#1a1612;border-radius:12px 12px 0 0;padding:28px;">
+            <div style="font-family:Georgia,serif;font-size:26px;font-weight:700;color:#f7f3ec;">Alaye<span style="color:#b8860b;">.</span></div>
+            <div style="font-size:11px;color:rgba(247,243,236,0.5);letter-spacing:0.8px;text-transform:uppercase;margin-top:3px;">Open Academic Opportunities</div>
+          </div>
+          <div style="background:#ffffff;padding:28px;border-radius:0 0 12px 12px;margin-bottom:20px;">
+            <div style="font-family:Georgia,serif;font-size:20px;font-weight:600;color:#1a1612;margin-bottom:8px;">Your saved opportunities</div>
+            <div style="font-size:14px;color:#6b6358;line-height:1.7;margin-bottom:24px;">
+              Here is a summary of your <strong>${listings.length}</strong> saved opportunit${listings.length !== 1 ? 'ies' : 'y'} on Alaye.
+              ${urgent.length > 0 ? `<strong style="color:#dc2626;"> You have ${urgent.length} closing in 5 days — act fast!</strong>` : ' Stay on top of your applications and good luck!'}
+            </div>
+            ${urgentSection}
+            ${upcomingSection}
+            ${restSection}
+            <div style="margin-top:28px;padding-top:20px;border-top:1px solid #e8e0d4;text-align:center;">
+              <a href="https://alaye-navy.vercel.app" style="background:#b8860b;color:#1a1612;text-decoration:none;padding:12px 28px;border-radius:10px;font-size:14px;font-weight:600;">Browse more opportunities →</a>
+            </div>
+          </div>
+          <div style="text-align:center;font-size:11px;color:#aaa;padding:0 0 24px;">
+            You are receiving this because you saved opportunities on Alaye.<br>
+            Visit <a href="https://alaye-navy.vercel.app" style="color:#0f6e56;">alaye-navy.vercel.app</a> to manage your saved items.
+          </div>
+        </div>
+      </body>
+      </html>`
+
+    try {
+      const response = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.REACT_APP_RESEND_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          from: 'Alaye <onboarding@resend.dev>',
+          to: [session.user.email],
+          subject: `Alaye — Your ${listings.length} saved opportunit${listings.length !== 1 ? 'ies' : 'y'}${urgent.length > 0 ? ' 🚨 ' + urgent.length + ' closing soon!' : ''}`,
+          html
+        })
+      })
+
+      if (response.ok) {
+        setEmailSent(true)
+        showSuccess()
+      } else {
+        const data = await response.json()
+        setError(data.message || 'Failed to send email. Try again.')
+      }
+    } catch (e) {
+      setError('Network error. Please try again.')
+    }
+    setSending(false)
+  }
+
+  const showSuccess = () => {
+    setEmailSent(true)
+    setTimeout(() => setEmailSent(false), 5000)
   }
 
   return (
@@ -81,14 +185,24 @@ export default function Cart({ session, bookmarks, onClose, onRemove }) {
         <div style={{ background: '#fef9ec', border: '0.5px solid #f0e4b8', borderRadius: 'var(--radius)', padding: '10px 14px', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
           <div style={{ fontSize: 13 }}>
             <i className="ti ti-bell" aria-hidden="true" style={{ color: 'var(--gold)', marginRight: 6 }} />
-            <strong>{listings.length}</strong> saved opportunit{listings.length > 1 ? 'ies' : 'y'} · get a deadline summary
+            <strong>{listings.length}</strong> saved opportunit{listings.length !== 1 ? 'ies' : 'y'}
+            {listings.filter(l => { const d = daysLeft(l.deadline); return d !== null && d >= 0 && d <= 5 }).length > 0 && (
+              <span style={{ color: '#dc2626', fontWeight: 600 }}> · {listings.filter(l => { const d = daysLeft(l.deadline); return d !== null && d >= 0 && d <= 5 }).length} closing soon!</span>
+            )}
           </div>
           <button
-            onClick={handleSendReminder}
-            style={{ background: 'var(--gold)', color: 'var(--ink)', border: 'none', padding: '6px 14px', borderRadius: 'var(--radius)', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}
+            onClick={handleSendEmail}
+            disabled={sending || emailSent}
+            style={{ background: emailSent ? 'var(--teal)' : 'var(--gold)', color: emailSent ? '#fff' : 'var(--ink)', border: 'none', padding: '6px 14px', borderRadius: 'var(--radius)', fontSize: 12, fontWeight: 500, cursor: sending ? 'wait' : 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', transition: 'all 0.2s' }}
           >
-            {reminderSent ? '✅ Sent!' : 'Email me reminders'}
+            {sending ? 'Sending…' : emailSent ? '✅ Email sent!' : 'Email me reminders'}
           </button>
+        </div>
+      )}
+
+      {error && (
+        <div style={{ fontSize: 13, color: '#7f1d1d', background: '#fee2e2', padding: '8px 12px', borderRadius: 8, marginBottom: 12 }}>
+          {error}
         </div>
       )}
 
