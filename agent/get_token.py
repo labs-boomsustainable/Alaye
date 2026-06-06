@@ -4,7 +4,7 @@ import json
 
 CLIENT_ID = "285885127099-g6ae5gpvmgqjuqhebtmmrsadkrd8e9da.apps.googleusercontent.com"
 CLIENT_SECRET = "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"
-AUTH_CODE = "4/1AdkVLPzZpfbmOqbpi5UslWBswoGyp0g2ZH8DGhFRrxlIuH3qUcyH11DSMpI"
+AUTH_CODE = "4/1AdkVLPxzRMUAG7Xu6QwKm1GAB5YgZY-QY5OByTlK7h9OSQtIkTbxiSviY5g"
 
 data = urllib.parse.urlencode({
     "code": AUTH_CODE,
