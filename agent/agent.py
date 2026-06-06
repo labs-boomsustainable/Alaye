@@ -137,11 +137,12 @@ def fetch_academictransfer():
     return results
 
 def fetch_wikicfp():
-    """Fetch conference CFPs from WikiCFP — fully public."""
+    """Fetch conference CFPs from WikiCFP — current year only."""
     print("   Fetching WikiCFP...")
     results = []
+    current_year = datetime.now(timezone.utc).year
     try:
-        url = "http://www.wikicfp.com/cfp/call?conference=international"
+        url = f"http://www.wikicfp.com/cfp/call?conference=international&year={current_year}"
         r = requests.get(url, headers=HEADERS, timeout=15)
         soup = BeautifulSoup(r.text, "html.parser")
         rows = soup.find_all("tr")[:20]
@@ -149,12 +150,18 @@ def fetch_wikicfp():
             cells = row.find_all("td")
             if len(cells) >= 3:
                 title_el = cells[0].find("a")
+                deadline_text = cells[2].get_text(strip=True) if len(cells) > 2 else ""
+                location_text = cells[1].get_text(strip=True) if len(cells) > 1 else ""
                 if title_el:
+                    if str(current_year - 1) in deadline_text or str(current_year - 2) in deadline_text:
+                        continue
+                    if str(current_year - 1) in title_el.get_text() or str(current_year - 2) in title_el.get_text():
+                        continue
                     link = "http://www.wikicfp.com" + title_el.get("href","")
                     results.append({
                         "source": "WikiCFP",
                         "link": link,
-                        "text": f"Conference CFP: {title_el.get_text(strip=True)}. Deadline: {cells[2].get_text(strip=True) if len(cells)>2 else 'TBD'}. Location: {cells[1].get_text(strip=True) if len(cells)>1 else 'TBD'}"
+                        "text": f"Conference CFP: {title_el.get_text(strip=True)}. Deadline: {deadline_text}. Location: {location_text}"
                     })
         print(f"   WikiCFP: {len(results)} items")
     except Exception as e:
