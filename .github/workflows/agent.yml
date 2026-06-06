@@ -34,13 +34,22 @@ jobs:
         with:
           python-version: '3.11'
       - name: Install dependencies
-        run: pip install anthropic requests beautifulsoup4
+        run: pip install anthropic requests beautifulsoup4 google-auth
       - name: Run Alaye agent
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python agent/agent.py
+      - name: Run Gmail scraper
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          GMAIL_CLIENT_ID: ${{ secrets.GMAIL_CLIENT_ID }}
+          GMAIL_CLIENT_SECRET: ${{ secrets.GMAIL_CLIENT_SECRET }}
+          GMAIL_REFRESH_TOKEN: ${{ secrets.GMAIL_REFRESH_TOKEN }}
+        run: python agent/gmail_scraper.py
 
   weekly-digest:
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'weekly'
