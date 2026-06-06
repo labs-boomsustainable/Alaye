@@ -81,7 +81,7 @@ jobs:
         run: python agent/email_reminder.py urgent
 
   get-token:
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'get-token'
+    if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
