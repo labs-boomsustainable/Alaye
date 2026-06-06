@@ -237,6 +237,9 @@ def run_gmail_scraper():
                         continue
                 except:
                     pass
+            if str(current_year - 1) in title or str(current_year - 2) in title or str(current_year - 3) in title:
+                print(f"   ⏭️  Old listing skipped: {title[:50]}")
+                continue
             all_opportunities.append(opp)
             existing_titles.add(title.lower())
 
