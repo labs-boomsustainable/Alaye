@@ -20,9 +20,6 @@ GOOGLE_GROUPS = [
 
 def get_access_token():
     """Get a fresh Gmail access token using the refresh token."""
-    print(f"Using client_id: {GMAIL_CLIENT_ID[:20]}...")
-    print(f"Using client_secret length: {len(GMAIL_CLIENT_SECRET)} chars")
-    print(f"Using refresh_token length: {len(GMAIL_REFRESH_TOKEN)} chars")
     response = requests.post(
         "https://oauth2.googleapis.com/token",
         data={
