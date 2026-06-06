@@ -111,7 +111,7 @@ Return a JSON array where each object has:
 - location: city and country or "Global"
 - region: "africa", "europe", "north america", "asia", or "global"
 - field: academic discipline
-- deadline: YYYY-MM-DD or null
+- deadline: YYYY-MM-DD or null. Only include opportunities with deadlines in 2026 or later. If the opportunity is clearly from a past year, do not include it.
 - funding: funding details or null
 - description: max 200 character summary
 - link: application URL or null
