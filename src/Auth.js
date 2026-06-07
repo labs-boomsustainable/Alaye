@@ -1,25 +1,40 @@
 import React, { useState } from 'react'
 import { supabase } from './supabaseClient'
 
+const ADMIN_EMAILS = ['areoluwamide@gmail.com']
+
 export default function Auth({ onClose }) {
   const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
   const [error, setError] = useState(null)
+
+  const isAdmin = ADMIN_EMAILS.includes(email.trim().toLowerCase())
 
   const handleLogin = async () => {
     if (!email.trim()) { setError('Please enter your email'); return }
     setLoading(true)
     setError(null)
-    const { error } = await supabase.auth.signInWithOtp({
-      email: email.trim(),
-      options: {
-        emailRedirectTo: window.location.origin,
-      }
-    })
-    setLoading(false)
-    if (error) { setError(error.message); return }
-    setSent(true)
+
+    if (isAdmin) {
+      if (!password.trim()) { setError('Please enter your password'); setLoading(false); return }
+      const { error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password: password.trim()
+      })
+      setLoading(false)
+      if (error) { setError('Incorrect email or password'); return }
+      onClose()
+    } else {
+      const { error } = await supabase.auth.signInWithOtp({
+        email: email.trim(),
+        options: { emailRedirectTo: window.location.origin }
+      })
+      setLoading(false)
+      if (error) { setError(error.message); return }
+      setSent(true)
+    }
   }
 
   return (
@@ -27,13 +42,13 @@ export default function Auth({ onClose }) {
       {!sent ? (
         <>
           <div className="modal-hdr">
-            <div className="modal-title">Sign in to Alaye</div>
+            <div className="modal-title">Admin login</div>
             <button className="btn-close" onClick={onClose}>
               <i className="ti ti-x" aria-hidden="true" />
             </button>
           </div>
           <p style={{ fontSize: 14, color: 'var(--muted)', marginBottom: '1.5rem', lineHeight: 1.6 }}>
-            Enter your email and we'll send you a magic link — no password needed.
+            {isAdmin ? 'Enter your password to sign in as admin.' : 'Enter your email address to continue.'}
           </p>
           <div className="form-group">
             <label className="form-label">Email address</label>
@@ -42,21 +57,31 @@ export default function Auth({ onClose }) {
               placeholder="you@example.com"
               value={email}
               onChange={e => setEmail(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleLogin()}
+              onKeyDown={e => e.key === 'Enter' && !isAdmin && handleLogin()}
               autoFocus
             />
           </div>
+          {isAdmin && (
+            <div className="form-group">
+              <label className="form-label">Password</label>
+              <input
+                type="password"
+                placeholder="Your password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleLogin()}
+                autoFocus
+              />
+            </div>
+          )}
           {error && (
             <div style={{ fontSize: 13, color: '#7f1d1d', background: '#fee2e2', padding: '8px 12px', borderRadius: 8, marginBottom: 12 }}>
               {error}
             </div>
           )}
           <button className="btn-submit" onClick={handleLogin} disabled={loading}>
-            {loading ? 'Sending…' : 'Send magic link →'}
+            {loading ? 'Signing in…' : isAdmin ? 'Sign in →' : 'Continue →'}
           </button>
-          <p style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', marginTop: 16 }}>
-            No account needed — signing in creates your account automatically.
-          </p>
         </>
       ) : (
         <div className="success">
