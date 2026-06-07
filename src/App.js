@@ -62,6 +62,7 @@ export default function App() {
   const [showAdmin, setShowAdmin] = useState(false)
   const [showBanner, setShowBanner] = useState(() => !localStorage.getItem('alaye_visited'))
   const [page, setPage] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
   const PER_PAGE = 10
   const [editListing, setEditListing] = useState(null)
   const [bookmarks, setBookmarks] = useState(new Set())
@@ -109,6 +110,14 @@ export default function App() {
     q = q.range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
     const { data, error } = await q
     if (!error) setListings(data || [])
+
+    let countQ = supabase.from('listings').select('*', { count: 'exact', head: true })
+    if (tab !== 'browse') countQ = countQ.eq('type', tab)
+    if (region !== 'all') countQ = countQ.ilike('region', `%${region}%`)
+    if (query) countQ = countQ.or(`title.ilike.%${query}%,institution.ilike.%${query}%,field.ilike.%${query}%,location.ilike.%${query}%`)
+    const { count } = await countQ
+    setTotalCount(count || 0)
+
     setLoading(false)
   }, [tab, region, query, sort, page])
 
@@ -265,7 +274,7 @@ const handleBookmark = async (id) => {
           </button>
         </div>
         <div className="hero-stats">
-          <div><div className="stat-val">{listings.length}</div><div className="stat-lbl">Listings</div></div>
+          <div><div className="stat-val">{totalCount}</div><div className="stat-lbl">Listings</div></div>
           <div><div className="stat-val">Global</div><div className="stat-lbl">Reach</div></div>
           <div><div className="stat-val">Free</div><div className="stat-lbl">Open source</div></div>
         </div>
