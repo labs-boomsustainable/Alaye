@@ -120,12 +120,12 @@ export default function Cart({ session, bookmarks, onClose, onRemove }) {
             ${upcomingSection}
             ${restSection}
             <div style="margin-top:28px;padding-top:20px;border-top:1px solid #e8e0d4;text-align:center;">
-              <a href="https://alaye-navy.vercel.app" style="background:#b8860b;color:#1a1612;text-decoration:none;padding:12px 28px;border-radius:10px;font-size:14px;font-weight:600;">Browse more opportunities →</a>
+              <a href="https://alaye-agent.live" style="background:#b8860b;color:#1a1612;text-decoration:none;padding:12px 28px;border-radius:10px;font-size:14px;font-weight:600;">Browse more opportunities →</a>
             </div>
           </div>
           <div style="text-align:center;font-size:11px;color:#aaa;padding:0 0 24px;">
             You are receiving this because you saved opportunities on Alaye.<br>
-            Visit <a href="https://alaye-navy.vercel.app" style="color:#0f6e56;">alaye-navy.vercel.app</a> to manage your saved items.
+            Visit <a href="https://alaye-agent.live" style="color:#0f6e56;">alaye-navy.vercel.app</a> to manage your saved items.
           </div>
         </div>
       </body>
