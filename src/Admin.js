@@ -144,7 +144,7 @@ export default function Admin({ onClose }) {
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: '#f2ede6', zIndex: 300, overflowY: 'auto' }}>
-      <div style={{ maxWidth: 900px, margin: '0 auto', padding: '2rem 1rem 5rem' }}>
+      <div style={{ maxWidth: 900, margin: '0 auto', padding: '2rem 1rem 5rem' }}>
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2rem' }}>
           <div>
@@ -173,7 +173,7 @@ export default function Admin({ onClose }) {
                   { label: 'Community posts', value: stats.communityPosts, color: '#185fa5' },
                   { label: 'Unverified', value: stats.unverified, color: '#d97706' },
                   { label: 'Registered users', value: stats.userCount, color: '#7c3aed' },
-                ].map(s => (
+                ].map((s) => (
                   <div key={s.label} style={{ background: '#fff', border: '0.5px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '1rem 1.25rem' }}>
                     <div style={{ fontFamily: 'Lora, serif', fontSize: 28, fontWeight: 600, color: s.color }}>{s.value}</div>
                     <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>{s.label}</div>
