@@ -63,6 +63,9 @@ export default function App() {
   const [showBanner, setShowBanner] = useState(() => !localStorage.getItem('alaye_visited'))
   const [editListing, setEditListing] = useState(null)
   const [bookmarks, setBookmarks] = useState(new Set())
+  const [userEmail, setUserEmail] = useState(() => localStorage.getItem('alaye_email') || '')
+  const [emailPrompt, setEmailPrompt] = useState(null)
+  const [emailInput, setEmailInput] = useState('')
   const [form, setForm] = useState({
     type: 'phd', title: '', institution: '', location: '',
     region: 'global', field: '', deadline: '', funding: '', description: '', link: ''
@@ -80,10 +83,13 @@ export default function App() {
   }, [])
 
   const fetchBookmarks = useCallback(async () => {
-    if (!session) { setBookmarks(new Set()); return }
-    const { data } = await supabase.from('bookmarks').select('listing_id')
+    if (!userEmail) { setBookmarks(new Set()); return }
+    const { data } = await supabase
+      .from('subscribers')
+      .select('listing_id')
+      .eq('email', userEmail)
     if (data) setBookmarks(new Set(data.map(b => b.listing_id)))
-  }, [session])
+  }, [userEmail])
 
   useEffect(() => { fetchBookmarks() }, [fetchBookmarks])
 
@@ -108,21 +114,35 @@ export default function App() {
   useEffect(() => { fetchListings() }, [fetchListings])
 
   const handleBookmark = async (id) => {
-    if (!session) { setShowAuth(true); return }
-    if (bookmarks.has(id)) {
-      await supabase.from('bookmarks').delete().eq('listing_id', id)
-      setBookmarks(prev => { const n = new Set(prev); n.delete(id); return n })
-      showToast('Removed from cart')
-    } else {
-      await supabase.from('bookmarks').insert([{ user_id: session.user.id, listing_id: id }])
-      setBookmarks(prev => new Set([...prev, id]))
-      showToast('Added to your cart!')
+    if (!userEmail) {
+      setEmailPrompt(id)
+      setEmailInput('')
+      return
     }
+    if (bookmarks.has(id)) {
+      await supabase.from('subscribers').delete().eq('listing_id', id).eq('email', userEmail)
+      setBookmarks(prev => { const n = new Set(prev); n.delete(id); return n })
+      showToast('Removed from saved')
+    } else {
+      await supabase.from('subscribers').insert([{ email: userEmail, listing_id: id }])
+      setBookmarks(prev => new Set([...prev, id]))
+      showToast('Saved! You will get deadline reminders.')
+    }
+  }
+
+  const handleEmailSubmit = async () => {
+    const email = emailInput.trim().toLowerCase()
+    if (!email || !email.includes('@')) { showToast('Please enter a valid email'); return }
+    localStorage.setItem('alaye_email', email)
+    setUserEmail(email)
+    await supabase.from('subscribers').insert([{ email, listing_id: emailPrompt }])
+    setBookmarks(prev => new Set([...prev, emailPrompt]))
+    setEmailPrompt(null)
+    showToast('Saved! You will get deadline reminders.')
   }
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
-    setBookmarks(new Set())
     showToast('Signed out')
   }
 
@@ -130,7 +150,6 @@ export default function App() {
     if (!window.confirm('Delete this listing?')) return
     const { error } = await supabase.from('listings').delete().eq('id', id)
     if (!error) { showToast('Listing deleted'); fetchListings() }
-    else showToast('Error deleting listing')
   }
 
   const handleVerify = async (id, current) => {
@@ -193,8 +212,8 @@ export default function App() {
       showToast('Link copied to clipboard!')
     }
   }
+
   const openModal = () => {
-    if (!session) { setShowAuth(true); return }
     setEditListing(null)
     setModal(true)
     setSubmitted(false)
@@ -229,13 +248,19 @@ export default function App() {
                 <button className="btn-ghost" onClick={handleSignOut}>Sign out</button>
               </div>
             ) : (
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn-ghost" onClick={() => setShowAuth(true)}>Sign in</button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                {userEmail && (
+                  <button className="cart-btn" onClick={() => setShowCart(true)}>
+                    <i className="ti ti-bookmark" aria-hidden="true" />
+                    {bookmarks.size > 0 && <span className="cart-count">{bookmarks.size}</span>}
+                  </button>
+                )}
+                <button className="btn-ghost" onClick={() => setShowAuth(true)}>Admin login</button>
               </div>
             )}
           </div>
         </div>
-        <div className="hero-desc">PhD positions, postdocs, grants, open paper calls and conferences — in one clean place, for everyone.</div>
+        <div className="hero-desc">A public access group for unconventional academic opportunities — those that live inside closed networks, fellowships, alumni circles, and youth communities, now open to everyone.</div>
         <div className="hero-actions">
           <button className="btn-primary" onClick={openModal}>
             <i className="ti ti-plus" aria-hidden="true" style={{ marginRight: 6 }} />
@@ -249,10 +274,10 @@ export default function App() {
         </div>
       </div>
 
-      {showBanner && !session && (
+      {showBanner && (
         <div className="onboarding-banner">
           <p>
-            <strong>Welcome to Alaye.</strong> A public access group for unconventional opportunities — those that exist within closed networks, fellowships, alumni circles, and youth communities, now open to everyone. One click to contribute. Sign in to save bookmarked opportunities, and get deadline reminders.
+            <strong>Welcome to Alaye.</strong> A public access group for unconventional academic opportunities — those that live inside closed networks, fellowships, alumni circles, and youth communities, now open to everyone. Click the bookmark icon on any listing to save it and get deadline reminders.
           </p>
           <button onClick={handleDismissBanner}>Got it ✓</button>
         </div>
@@ -337,8 +362,7 @@ export default function App() {
                   <button
                     className={`btn-save${isBookmarked ? ' saved' : ''}`}
                     onClick={() => handleBookmark(l.id)}
-                    aria-label={isBookmarked ? 'Remove from cart' : 'Save to cart'}
-                    title={session ? (isBookmarked ? 'Remove from cart' : 'Save to cart') : 'Sign in to save'}
+                    title={isBookmarked ? 'Remove from saved' : 'Save this opportunity'}
                   >
                     <i className={`ti ${isBookmarked ? 'ti-bookmark-filled' : 'ti-bookmark'}`} aria-hidden="true" />
                   </button>
@@ -376,18 +400,47 @@ export default function App() {
         })}
       </div>
 
+      {emailPrompt && (
+        <div className="overlay" onClick={e => e.target.className === 'overlay' && setEmailPrompt(null)}>
+          <div className="modal" style={{ maxWidth: 420 }}>
+            <div className="modal-hdr">
+              <div className="modal-title">Save this opportunity</div>
+              <button className="btn-close" onClick={() => setEmailPrompt(null)}><i className="ti ti-x" aria-hidden="true" /></button>
+            </div>
+            <p style={{ fontSize: 14, color: 'var(--muted)', marginBottom: '1.25rem', lineHeight: 1.6 }}>
+              Enter your email to save this opportunity and receive deadline reminders. No password needed.
+            </p>
+            <div className="form-group">
+              <label className="form-label">Your email</label>
+              <input
+                type="email"
+                placeholder="you@example.com"
+                value={emailInput}
+                onChange={e => setEmailInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleEmailSubmit()}
+                autoFocus
+              />
+            </div>
+            <button className="btn-submit" onClick={handleEmailSubmit}>
+              Save opportunity →
+            </button>
+            <p style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', marginTop: 12 }}>
+              We only use your email for deadline reminders. No spam.
+            </p>
+          </div>
+        </div>
+      )}
+
       {showAuth && (
         <div className="overlay" onClick={e => e.target.className === 'overlay' && setShowAuth(false)}>
           <Auth onClose={() => setShowAuth(false)} />
         </div>
       )}
 
-      {showAdmin && (
-        <Admin onClose={() => setShowAdmin(false)} />
-      )}
       {showCart && (
         <div className="overlay" onClick={e => e.target.className === 'overlay' && setShowCart(false)}>
           <Cart
+            userEmail={userEmail}
             session={session}
             bookmarks={bookmarks}
             onClose={() => setShowCart(false)}
@@ -396,6 +449,10 @@ export default function App() {
             }}
           />
         </div>
+      )}
+
+      {showAdmin && (
+        <Admin onClose={() => setShowAdmin(false)} />
       )}
 
       {modal && (
@@ -474,7 +531,7 @@ export default function App() {
                 <div style={{ fontFamily: 'Lora, serif', fontSize: 18, fontWeight: 500 }}>
                   {editListing ? 'Listing updated!' : 'Listing posted!'}
                 </div>
-                <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 8 }}>Your opportunity is now live on the Alaye board.</p>
+                <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 8 }}>Your opportunity is now live on Alaye.</p>
                 <button className="btn-primary" style={{ marginTop: '1.5rem' }} onClick={closeModal}>Back to listings</button>
               </div>
             )}
