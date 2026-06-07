@@ -19,6 +19,7 @@ export default function Cart({ userEmail, session, bookmarks, onClose, onRemove 
   const [sending, setSending] = useState(false)
   const [emailSent, setEmailSent] = useState(false)
   const [error, setError] = useState(null)
+  const [cartEmail, setCartEmail] = useState('')
 
   const emailToUse = userEmail || session?.user?.email
 
@@ -42,12 +43,14 @@ export default function Cart({ userEmail, session, bookmarks, onClose, onRemove 
       })
   }, [bookmarks])
 
-  const handleRemove = async (id) => {
-    if (emailToUse) {
-      await supabase.from('subscribers').delete().eq('listing_id', id).eq('email', emailToUse)
+  const handleSaveEmail = async () => {
+    const email = cartEmail.trim().toLowerCase()
+    if (!email || !email.includes('@')) return
+    localStorage.setItem('alaye_email', email)
+    for (const l of listings) {
+      await supabase.from('subscribers').upsert([{ email, listing_id: l.id }])
     }
-    setListings(prev => prev.filter(l => l.id !== id))
-    onRemove(id)
+    window.location.reload()
   }
 
   const handleSendEmail = async () => {
@@ -172,19 +175,47 @@ export default function Cart({ userEmail, session, bookmarks, onClose, onRemove 
         </button>
       </div>
 
-      {emailToUse && listings.length > 0 && (
-        <div style={{ background: '#fef9ec', border: '0.5px solid #f0e4b8', borderRadius: 'var(--radius)', padding: '10px 14px', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-          <div style={{ fontSize: 13 }}>
-            <i className="ti ti-bell" aria-hidden="true" style={{ color: 'var(--gold)', marginRight: 6 }} />
-            Sending to <strong>{emailToUse}</strong>
-          </div>
-          <button
-            onClick={handleSendEmail}
-            disabled={sending || emailSent}
-            style={{ background: emailSent ? 'var(--teal)' : 'var(--gold)', color: emailSent ? '#fff' : 'var(--ink)', border: 'none', padding: '6px 14px', borderRadius: 'var(--radius)', fontSize: 12, fontWeight: 500, cursor: sending ? 'wait' : 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', transition: 'all 0.2s' }}
-          >
-            {sending ? 'Sending…' : emailSent ? '✅ Email sent!' : 'Email me reminders'}
-          </button>
+      {listings.length > 0 && (
+        <div style={{ background: '#fef9ec', border: '0.5px solid #f0e4b8', borderRadius: 'var(--radius)', padding: '10px 14px', marginBottom: '1.25rem' }}>
+          {emailToUse ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+              <div style={{ fontSize: 13 }}>
+                <i className="ti ti-bell" aria-hidden="true" style={{ color: 'var(--gold)', marginRight: 6 }} />
+                Sending to <strong>{emailToUse}</strong>
+              </div>
+              <button
+                onClick={handleSendEmail}
+                disabled={sending || emailSent}
+                style={{ background: emailSent ? 'var(--teal)' : 'var(--gold)', color: emailSent ? '#fff' : 'var(--ink)', border: 'none', padding: '6px 14px', borderRadius: 'var(--radius)', fontSize: 12, fontWeight: 500, cursor: sending ? 'wait' : 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}
+              >
+                {sending ? 'Sending…' : emailSent ? '✅ Sent!' : 'Email me reminders'}
+              </button>
+            </div>
+          ) : (
+            <div>
+              <div style={{ fontSize: 13, marginBottom: 8 }}>
+                <i className="ti ti-bell" aria-hidden="true" style={{ color: 'var(--gold)', marginRight: 6 }} />
+                Enter your email to get deadline reminders
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  type="email"
+                  placeholder="you@example.com"
+                  value={cartEmail}
+                  onChange={e => setCartEmail(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleSaveEmail()}
+                  style={{ flex: 1, padding: '7px 11px', border: '0.5px solid var(--border)', borderRadius: 'var(--radius)', fontFamily: 'inherit', fontSize: 13 }}
+                />
+                <button
+                  onClick={handleSaveEmail}
+                  style={{ background: 'var(--gold)', color: 'var(--ink)', border: 'none', padding: '7px 14px', borderRadius: 'var(--radius)', fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}
+                >
+                  Save & remind me
+                </button>
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6 }}>No spam. Only deadline reminders.</div>
+            </div>
+          )}
         </div>
       )}
 
