@@ -3,6 +3,7 @@ import json
 import time
 import random
 import requests
+import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from bs4 import BeautifulSoup
 import anthropic
@@ -14,184 +15,48 @@ ANTHROPIC_API_KEY = os.environ["ANTHROPIC_API_KEY"]
 client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-    "Accept-Language": "en-US,en;q=0.5",
 }
 
-def fetch_html(url, name):
-    """Fetch HTML page and extract text."""
+RSS_SOURCES = [
+    {"name": "OpportunityDesk", "url": "https://opportunitydesk.org/feed/", "region": "global"},
+    {"name": "ScholarshipPositions", "url": "https://scholarship-positions.com/feed/", "region": "global"},
+    {"name": "FindAPhD", "url": "https://www.findaphd.com/phds/rss.aspx?Keywords=funded&PG=1", "region": "global"},
+    {"name": "CallForPapers Penn", "url": "https://call-for-papers.sas.upenn.edu/sites/call-for-papers.sas.upenn.edu/files/feed_0.xml", "region": "global"},
+]
+
+def fetch_rss(source):
+    """Fetch and parse RSS feed returning rich items."""
+    name = source["name"]
+    url = source["url"]
+    print(f"   Fetching RSS: {name}")
+    results = []
     try:
         r = requests.get(url, headers=HEADERS, timeout=15)
-        soup = BeautifulSoup(r.text, "html.parser")
-        for tag in soup(["script", "style", "nav", "footer", "header", "aside"]):
-            tag.decompose()
-        text = soup.get_text(separator=" ", strip=True)
-        print(f"   {name}: {len(text)} chars")
-        return [{"source": name, "link": url, "text": text[:4000]}]
-    except Exception as e:
-        print(f"   {name} error: {e}")
-        return []
-
-def fetch_callforpaper():
-    """Fetch from callforpaper.org."""
-    print("   Fetching CallForPaper.org...")
-    results = []
-    try:
-        r = requests.get("https://callforpaper.org/", headers=HEADERS, timeout=15)
-        soup = BeautifulSoup(r.text, "html.parser")
-        cards = soup.find_all(["article", "div"], class_=lambda c: c and any(x in c for x in ["card", "event", "cfp", "conference"]))[:8]
-        for card in cards:
-            title_el = card.find(["h2", "h3", "h4"])
-            link_el = card.find("a", href=True)
-            if title_el:
-                link = link_el["href"] if link_el else "https://callforpaper.org"
-                if link.startswith("/"):
-                    link = "https://callforpaper.org" + link
-                results.append({"source": "CallForPaper.org", "link": link, "text": card.get_text(separator=" ", strip=True)[:600]})
-        if not results:
-            for tag in soup(["script", "style", "nav", "footer"]):
-                tag.decompose()
-            text = soup.get_text(separator=" ", strip=True)[:4000]
-            results.append({"source": "CallForPaper.org", "link": "https://callforpaper.org", "text": text})
-        print(f"   CallForPaper.org: {len(results)} items")
-    except Exception as e:
-        print(f"   CallForPaper.org error: {e}")
-    return results
-
-def fetch_opportunitydesk():
-    """Fetch from opportunitydesk.org — Africa focused."""
-    print("   Fetching OpportunityDesk...")
-    results = []
-    try:
-        r = requests.get("https://opportunitydesk.org/", headers=HEADERS, timeout=15)
-        soup = BeautifulSoup(r.text, "html.parser")
-        articles = soup.find_all("article")[:8]
-        for article in articles:
-            title_el = article.find(["h2", "h3"])
-            link_el = article.find("a", href=True)
-            excerpt = article.find("p")
-            if title_el:
-                link = link_el["href"] if link_el else "https://opportunitydesk.org"
+        root = ET.fromstring(r.content)
+        items = list(root.iter("item"))[:8]
+        for item in items:
+            title = item.findtext("title", "").strip()
+            link = item.findtext("link", "").strip()
+            description = item.findtext("description", "").strip()
+            pub_date = item.findtext("pubDate", "").strip()
+            content = ""
+            for tag in item:
+                if "encoded" in tag.tag.lower():
+                    content = tag.text or ""
+                    break
+            soup = BeautifulSoup(description + " " + content, "html.parser")
+            clean_text = soup.get_text(separator=" ", strip=True)[:1500]
+            if title:
                 results.append({
-                    "source": "OpportunityDesk",
+                    "source": name,
                     "link": link,
-                    "text": f"{title_el.get_text(strip=True)}. {excerpt.get_text(strip=True)[:300] if excerpt else ''}"
+                    "text": f"Title: {title}\nPublished: {pub_date}\nContent: {clean_text}"
                 })
-        if not results:
-            for tag in soup(["script", "style", "nav", "footer"]):
-                tag.decompose()
-            text = soup.get_text(separator=" ", strip=True)[:4000]
-            if len(text) > 200:
-                results.append({"source": "OpportunityDesk", "link": "https://opportunitydesk.org", "text": text})
-        print(f"   OpportunityDesk: {len(results)} items")
+        print(f"   {name}: {len(results)} items")
     except Exception as e:
-        print(f"   OpportunityDesk error: {e}")
-    return results
-
-def fetch_jobsacuk():
-    """Fetch from jobs.ac.uk — UK academic jobs."""
-    print("   Fetching jobs.ac.uk...")
-    results = []
-    urls = [
-        "https://www.jobs.ac.uk/search/?keywords=phd+funded",
-        "https://www.jobs.ac.uk/search/?keywords=postdoc",
-        "https://www.jobs.ac.uk/search/?keywords=research+fellowship",
-    ]
-    for url in urls:
-        try:
-            r = requests.get(url, headers=HEADERS, timeout=15)
-            soup = BeautifulSoup(r.text, "html.parser")
-            jobs = soup.find_all(["li", "div"], class_=lambda c: c and any(x in str(c) for x in ["j-search-result", "result", "job"]))[:6]
-            for job in jobs:
-                title_el = job.find(["h2", "h3", "h4", "a"])
-                if title_el:
-                    link_el = job.find("a", href=True)
-                    link = link_el["href"] if link_el else url
-                    if link.startswith("/"):
-                        link = "https://www.jobs.ac.uk" + link
-                    results.append({
-                        "source": "jobs.ac.uk",
-                        "link": link,
-                        "text": job.get_text(separator=" ", strip=True)[:600]
-                    })
-            if not jobs:
-                for tag in soup(["script", "style", "nav", "footer"]):
-                    tag.decompose()
-                text = soup.get_text(separator=" ", strip=True)[:3000]
-                if len(text) > 200:
-                    results.append({"source": "jobs.ac.uk", "link": url, "text": text})
-            print(f"   jobs.ac.uk: {len(results)} items so far")
-        except Exception as e:
-            print(f"   jobs.ac.uk error: {e}")
-        time.sleep(2)
-    return results
-
-def fetch_academicpositions():
-    """Fetch from academicpositions.com."""
-    print("   Fetching AcademicPositions...")
-    results = []
-    urls = [
-        "https://academicpositions.com/find-jobs?type=phd",
-        "https://academicpositions.com/find-jobs?type=postdoc",
-    ]
-    for url in urls:
-        try:
-            r = requests.get(url, headers=HEADERS, timeout=15)
-            soup = BeautifulSoup(r.text, "html.parser")
-            for tag in soup(["script", "style", "nav", "footer"]):
-                tag.decompose()
-            jobs = soup.find_all(["article", "li", "div"], class_=lambda c: c and any(x in str(c).lower() for x in ["job", "position", "listing", "result"]))[:6]
-            for job in jobs:
-                title_el = job.find(["h2", "h3", "h4"])
-                link_el = job.find("a", href=True)
-                if title_el:
-                    link = link_el["href"] if link_el else url
-                    if link.startswith("/"):
-                        link = "https://academicpositions.com" + link
-                    results.append({
-                        "source": "AcademicPositions",
-                        "link": link,
-                        "text": job.get_text(separator=" ", strip=True)[:600]
-                    })
-            if not jobs:
-                text = soup.get_text(separator=" ", strip=True)[:3000]
-                if len(text) > 200:
-                    results.append({"source": "AcademicPositions", "link": url, "text": text})
-            print(f"   AcademicPositions: {len(results)} items so far")
-        except Exception as e:
-            print(f"   AcademicPositions error: {e}")
-        time.sleep(2)
-    return results
-
-def fetch_scholarshippositions():
-    """Fetch from scholarship-positions.com."""
-    print("   Fetching ScholarshipPositions...")
-    results = []
-    try:
-        r = requests.get("https://scholarship-positions.com/", headers=HEADERS, timeout=15)
-        soup = BeautifulSoup(r.text, "html.parser")
-        articles = soup.find_all("article")[:8]
-        for article in articles:
-            title_el = article.find(["h2", "h3"])
-            link_el = article.find("a", href=True)
-            excerpt = article.find("p")
-            if title_el:
-                link = link_el["href"] if link_el else "https://scholarship-positions.com"
-                results.append({
-                    "source": "ScholarshipPositions",
-                    "link": link,
-                    "text": f"{title_el.get_text(strip=True)}. {excerpt.get_text(strip=True)[:300] if excerpt else ''}"
-                })
-        if not results:
-            for tag in soup(["script", "style", "nav", "footer"]):
-                tag.decompose()
-            text = soup.get_text(separator=" ", strip=True)[:4000]
-            if len(text) > 200:
-                results.append({"source": "ScholarshipPositions", "link": "https://scholarship-positions.com", "text": text})
-        print(f"   ScholarshipPositions: {len(results)} items")
-    except Exception as e:
-        print(f"   ScholarshipPositions error: {e}")
+        print(f"   {name} RSS error: {e}")
     return results
 
 def fetch_wikicfp():
@@ -219,42 +84,36 @@ def fetch_wikicfp():
                     results.append({
                         "source": "WikiCFP",
                         "link": link,
-                        "text": f"Conference CFP: {title_el.get_text(strip=True)}. Deadline: {deadline_text}. Location: {location_text}"
+                        "text": f"Conference CFP: {title_el.get_text(strip=True)}. Submission Deadline: {deadline_text}. Location: {location_text}. Year: {current_year}"
                     })
         print(f"   WikiCFP: {len(results)} items")
     except Exception as e:
         print(f"   WikiCFP error: {e}")
     return results
 
-def fetch_euraxess():
-    """Fetch from EURAXESS — EU research jobs."""
-    print("   Fetching EURAXESS...")
+def fetch_jobsacuk():
+    """Fetch from jobs.ac.uk RSS feed."""
+    print("   Fetching jobs.ac.uk RSS...")
     results = []
     try:
-        r = requests.get("https://euraxess.ec.europa.eu/jobs", headers=HEADERS, timeout=15)
-        soup = BeautifulSoup(r.text, "html.parser")
-        jobs = soup.find_all(["article", "div", "li"], class_=lambda c: c and any(x in str(c) for x in ["job", "result", "listing", "view-row"]))[:8]
-        for job in jobs:
-            title_el = job.find(["h3", "h2", "h4"])
-            link_el = job.find("a", href=True)
-            if title_el:
-                link = link_el["href"] if link_el else "https://euraxess.ec.europa.eu/jobs"
-                if link.startswith("/"):
-                    link = "https://euraxess.ec.europa.eu" + link
+        url = "https://www.jobs.ac.uk/search/?keywords=phd+funded&format=rss"
+        r = requests.get(url, headers=HEADERS, timeout=15)
+        root = ET.fromstring(r.content)
+        items = list(root.iter("item"))[:8]
+        for item in items:
+            title = item.findtext("title", "").strip()
+            link = item.findtext("link", "").strip()
+            description = item.findtext("description", "").strip()
+            pub_date = item.findtext("pubDate", "").strip()
+            if title:
                 results.append({
-                    "source": "EURAXESS",
+                    "source": "jobs.ac.uk",
                     "link": link,
-                    "text": job.get_text(separator=" ", strip=True)[:600]
+                    "text": f"Title: {title}\nPublished: {pub_date}\nContent: {description[:1000]}"
                 })
-        if not jobs:
-            for tag in soup(["script", "style", "nav", "footer"]):
-                tag.decompose()
-            text = soup.get_text(separator=" ", strip=True)[:3000]
-            if len(text) > 200:
-                results.append({"source": "EURAXESS", "link": "https://euraxess.ec.europa.eu/jobs", "text": text})
-        print(f"   EURAXESS: {len(results)} items")
+        print(f"   jobs.ac.uk: {len(results)} items")
     except Exception as e:
-        print(f"   EURAXESS error: {e}")
+        print(f"   jobs.ac.uk error: {e}")
     return results
 
 def extract_with_claude(items, source_name):
@@ -263,7 +122,7 @@ def extract_with_claude(items, source_name):
         return []
 
     combined = ""
-    for i, item in enumerate(items[:8]):
+    for i, item in enumerate(items[:10]):
         combined += f"\n--- Item {i+1} from {item.get('source', source_name)} ---\n"
         combined += f"Link: {item.get('link', '')}\n"
         combined += f"Content: {item.get('text', '')[:1000]}\n"
@@ -275,16 +134,17 @@ def extract_with_claude(items, source_name):
 Return a JSON array. Each object must have:
 - type: "phd", "msc", "postdoc", "paper", "grant", or "conf"
 - title: specific opportunity title
-- institution: university or organization
+- institution: university or organization name
 - location: city and country or "Global"
 - region: "africa", "europe", "north america", "asia", or "global"
 - field: academic discipline
-- deadline: YYYY-MM-DD or null. Only include opportunities with deadlines or events in 2026 or later. If the opportunity is from 2025 or earlier, do not include it at all. Return empty array for old content.
+- deadline: YYYY-MM-DD or null. Only include opportunities closing in 2026 or later. Reject anything from 2025 or earlier entirely.
 - funding: funding info or null
 - description: max 200 char summary
 - link: URL
 
 Only include real opportunities with a clear title and institution.
+MSc and Masters scholarships should use type "msc".
 Return ONLY a valid JSON array. No markdown. No explanation. If none found return []"""
 
     try:
@@ -362,21 +222,15 @@ def run_agent():
     existing_titles = get_existing_titles()
     all_items = []
 
-    fetchers = [
-        fetch_callforpaper,
-        fetch_opportunitydesk,
-        fetch_jobsacuk,
-        fetch_academicpositions,
-        fetch_scholarshippositions,
-        fetch_wikicfp,
-        fetch_euraxess,
-    ]
-
-    selected = random.sample(fetchers, min(4, len(fetchers)))
-    for fetcher in selected:
-        items = fetcher()
+    rss_sources = random.sample(RSS_SOURCES, min(3, len(RSS_SOURCES)))
+    for source in rss_sources:
+        items = fetch_rss(source)
         all_items += items
-        time.sleep(3)
+        time.sleep(2)
+
+    all_items += fetch_wikicfp()
+    time.sleep(2)
+    all_items += fetch_jobsacuk()
 
     print(f"\n📥 Total raw items: {len(all_items)}")
 
