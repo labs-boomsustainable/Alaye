@@ -27,14 +27,37 @@ RSS_SOURCES = [
 ]
 
 def fetch_rss(source):
-    """Fetch and parse RSS feed returning rich items."""
+    """Fetch and parse RSS feed with tolerant parser."""
     name = source["name"]
     url = source["url"]
     print(f"   Fetching RSS: {name}")
     results = []
     try:
         r = requests.get(url, headers=HEADERS, timeout=15)
-        root = ET.fromstring(r.content)
+        content = r.content
+        content = content.replace(b'&', b'&amp;')
+        content = content.replace(b'&amp;amp;', b'&amp;')
+        content = content.replace(b'&amp;lt;', b'&lt;')
+        content = content.replace(b'&amp;gt;', b'&gt;')
+        try:
+            root = ET.fromstring(content)
+        except ET.ParseError:
+            soup = BeautifulSoup(r.text, "html.parser")
+            items_raw = soup.find_all("item")
+            for item in items_raw[:8]:
+                title = item.find("title")
+                link = item.find("link")
+                desc = item.find("description")
+                pub = item.find("pubdate")
+                if title:
+                    results.append({
+                        "source": name,
+                        "link": link.get_text(strip=True) if link else url,
+                        "text": f"Title: {title.get_text(strip=True)}\nPublished: {pub.get_text(strip=True) if pub else ''}\nContent: {desc.get_text(strip=True)[:1000] if desc else ''}"
+                    })
+            print(f"   {name}: {len(results)} items (via HTML parser)")
+            return results
+
         items = list(root.iter("item"))[:8]
         for item in items:
             title = item.findtext("title", "").strip()
@@ -98,18 +121,18 @@ def fetch_jobsacuk():
     try:
         url = "https://www.jobs.ac.uk/search/?keywords=phd+funded&format=rss"
         r = requests.get(url, headers=HEADERS, timeout=15)
-        root = ET.fromstring(r.content)
-        items = list(root.iter("item"))[:8]
-        for item in items:
-            title = item.findtext("title", "").strip()
-            link = item.findtext("link", "").strip()
-            description = item.findtext("description", "").strip()
-            pub_date = item.findtext("pubDate", "").strip()
+        soup = BeautifulSoup(r.text, "html.parser")
+        items_raw = soup.find_all("item")
+        for item in items_raw[:8]:
+            title = item.find("title")
+            link = item.find("link")
+            desc = item.find("description")
+            pub = item.find("pubdate")
             if title:
                 results.append({
                     "source": "jobs.ac.uk",
-                    "link": link,
-                    "text": f"Title: {title}\nPublished: {pub_date}\nContent: {description[:1000]}"
+                    "link": link.get_text(strip=True) if link else url,
+                    "text": f"Title: {title.get_text(strip=True)}\nPublished: {pub.get_text(strip=True) if pub else ''}\nContent: {desc.get_text(strip=True)[:1000] if desc else ''}"
                 })
         print(f"   jobs.ac.uk: {len(results)} items")
     except Exception as e:
