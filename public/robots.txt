@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://alaye-agent.live/sitemap.xml
+
+# Alaye — Global Academic Opportunities
+# https://alaye-agent.live
