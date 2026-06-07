@@ -245,12 +245,10 @@ const handleBookmark = async (id) => {
               </div>
             ) : (
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                {userEmail && (
-                  <button className="cart-btn" onClick={() => setShowCart(true)}>
+                <button className="cart-btn" onClick={() => setShowCart(true)}>
                     <i className="ti ti-bookmark" aria-hidden="true" />
                     {bookmarks.size > 0 && <span className="cart-count">{bookmarks.size}</span>}
                   </button>
-                )}
                 <button className="btn-ghost" onClick={() => setShowAuth(true)}>Admin login</button>
               </div>
             )}
