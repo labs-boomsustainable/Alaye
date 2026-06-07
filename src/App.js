@@ -113,20 +113,29 @@ export default function App() {
 
   useEffect(() => { fetchListings() }, [fetchListings])
 
-  const handleBookmark = async (id) => {
-    if (!userEmail) {
-      setEmailPrompt(id)
-      setEmailInput('')
-      return
-    }
+const handleBookmark = async (id) => {
     if (bookmarks.has(id)) {
-      await supabase.from('subscribers').delete().eq('listing_id', id).eq('email', userEmail)
-      setBookmarks(prev => { const n = new Set(prev); n.delete(id); return n })
+      const newBookmarks = new Set(bookmarks)
+      newBookmarks.delete(id)
+      setBookmarks(newBookmarks)
+      if (userEmail) {
+        await supabase.from('subscribers').delete().eq('listing_id', id).eq('email', userEmail)
+      } else {
+        const pending = JSON.parse(localStorage.getItem('alaye_pending') || '[]')
+        localStorage.setItem('alaye_pending', JSON.stringify(pending.filter(x => x !== id)))
+      }
       showToast('Removed from saved')
     } else {
-      await supabase.from('subscribers').insert([{ email: userEmail, listing_id: id }])
       setBookmarks(prev => new Set([...prev, id]))
-      showToast('Saved! You will get deadline reminders.')
+      if (userEmail) {
+        await supabase.from('subscribers').insert([{ email: userEmail, listing_id: id }])
+      } else {
+        const pending = JSON.parse(localStorage.getItem('alaye_pending') || '[]')
+        if (!pending.includes(id)) {
+          localStorage.setItem('alaye_pending', JSON.stringify([...pending, id]))
+        }
+      }
+      showToast('Saved!')
     }
   }
 
@@ -399,37 +408,6 @@ export default function App() {
           )
         })}
       </div>
-
-      {emailPrompt && (
-        <div className="overlay" onClick={e => e.target.className === 'overlay' && setEmailPrompt(null)}>
-          <div className="modal" style={{ maxWidth: 420 }}>
-            <div className="modal-hdr">
-              <div className="modal-title">Save this opportunity</div>
-              <button className="btn-close" onClick={() => setEmailPrompt(null)}><i className="ti ti-x" aria-hidden="true" /></button>
-            </div>
-            <p style={{ fontSize: 14, color: 'var(--muted)', marginBottom: '1.25rem', lineHeight: 1.6 }}>
-              Enter your email to save this opportunity and receive deadline reminders. No password needed.
-            </p>
-            <div className="form-group">
-              <label className="form-label">Your email</label>
-              <input
-                type="email"
-                placeholder="you@example.com"
-                value={emailInput}
-                onChange={e => setEmailInput(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleEmailSubmit()}
-                autoFocus
-              />
-            </div>
-            <button className="btn-submit" onClick={handleEmailSubmit}>
-              Save opportunity →
-            </button>
-            <p style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', marginTop: 12 }}>
-              We only use your email for deadline reminders. No spam.
-            </p>
-          </div>
-        </div>
-      )}
 
       {showAuth && (
         <div className="overlay" onClick={e => e.target.className === 'overlay' && setShowAuth(false)}>
