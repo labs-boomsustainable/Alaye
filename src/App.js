@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { supabase } from './supabaseClient'
 import Auth from './Auth'
 import Cart from './Cart'
+import Admin from './Admin'
 import './App.css'
 
 const TYPES = [
@@ -58,6 +59,7 @@ export default function App() {
   const [session, setSession] = useState(null)
   const [showAuth, setShowAuth] = useState(false)
   const [showCart, setShowCart] = useState(false)
+  const [showAdmin, setShowAdmin] = useState(false)
   const [editListing, setEditListing] = useState(null)
   const [bookmarks, setBookmarks] = useState(new Set())
   const [form, setForm] = useState({
@@ -195,7 +197,14 @@ export default function App() {
           <div className="hero-auth">
             {session ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                {isAdmin && <span className="admin-badge"><i className="ti ti-shield-check" aria-hidden="true" /> Admin</span>}
+                {isAdmin && (
+                  <button
+                    onClick={() => setShowAdmin(true)}
+                    style={{ background: 'var(--gold-lt)', color: 'var(--gold)', border: 'none', padding: '4px 12px', borderRadius: 20, fontSize: 11, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 4 }}
+                  >
+                    <i className="ti ti-shield-check" aria-hidden="true" /> Admin
+                  </button>
+                )}
                 <button className="cart-btn" onClick={() => setShowCart(true)}>
                   <i className="ti ti-bookmark" aria-hidden="true" />
                   {bookmarks.size > 0 && <span className="cart-count">{bookmarks.size}</span>}
@@ -339,6 +348,9 @@ export default function App() {
         </div>
       )}
 
+      {showAdmin && (
+        <Admin onClose={() => setShowAdmin(false)} />
+      )}
       {showCart && (
         <div className="overlay" onClick={e => e.target.className === 'overlay' && setShowCart(false)}>
           <Cart
