@@ -220,7 +220,7 @@ export default function App() {
         <div className="hero-stats">
           <div><div className="stat-val">{listings.length}</div><div className="stat-lbl">Listings</div></div>
           <div><div className="stat-val">Global</div><div className="stat-lbl">Reach</div></div>
-          <div><div className="stat-val">Free</div><div className="stat-lbl">Always open</div></div>
+          <div><div className="stat-val">Free</div><div className="stat-lbl">Open source</div></div>
         </div>
       </div>
 
