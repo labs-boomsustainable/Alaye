@@ -7,6 +7,7 @@ import './App.css'
 const TYPES = [
   { key: 'browse', label: 'All' },
   { key: 'phd', label: 'PhD' },
+  { key: 'msc', label: 'MSc' },
   { key: 'postdoc', label: 'Postdoc' },
   { key: 'paper', label: 'Paper calls' },
   { key: 'grant', label: 'Grants' },
@@ -27,10 +28,10 @@ const ADMINS = [
 ]
 
 function badgeClass(type) {
-  return { phd: 'badge-phd', postdoc: 'badge-postdoc', paper: 'badge-paper', grant: 'badge-grant', conf: 'badge-conf' }[type] || ''
+  return { phd: 'badge-phd', msc: 'badge-msc', postdoc: 'badge-postdoc', paper: 'badge-paper', grant: 'badge-grant', conf: 'badge-conf' }[type] || ''
 }
 function badgeLabel(type) {
-  return { phd: 'PhD', postdoc: 'Postdoc', paper: 'Paper call', grant: 'Grant', conf: 'Conference' }[type] || type
+  return { phd: 'PhD', msc: 'MSc', postdoc: 'Postdoc', paper: 'Paper call', grant: 'Grant', conf: 'Conference' }[type] || type
 }
 function daysLeft(deadline) {
   if (!deadline) return null
@@ -364,6 +365,7 @@ export default function App() {
                   <label className="form-label">Type</label>
                   <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
                     <option value="phd">PhD position</option>
+                    <option value="msc">MSc / Masters</option>
                     <option value="postdoc">Postdoc</option>
                     <option value="paper">Open paper call / CFP</option>
                     <option value="grant">Academic grant</option>
