@@ -43,6 +43,14 @@ export default function Cart({ userEmail, session, bookmarks, onClose, onRemove 
       })
   }, [bookmarks])
 
+  const handleRemove = async (id) => {
+    if (emailToUse) {
+      await supabase.from('subscribers').delete().eq('listing_id', id).eq('email', emailToUse)
+    }
+    setListings(prev => prev.filter(l => l.id !== id))
+    onRemove(id)
+  }
+  
   const handleSaveEmail = async () => {
     const email = cartEmail.trim().toLowerCase()
     if (!email || !email.includes('@')) return
