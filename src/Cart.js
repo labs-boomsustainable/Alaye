@@ -13,12 +13,14 @@ function urgencyColor(days) {
   return 'var(--teal)'
 }
 
-export default function Cart({ session, bookmarks, onClose, onRemove }) {
+export default function Cart({ userEmail, session, bookmarks, onClose, onRemove }) {
   const [listings, setListings] = useState([])
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
   const [emailSent, setEmailSent] = useState(false)
   const [error, setError] = useState(null)
+
+  const emailToUse = userEmail || session?.user?.email
 
   useEffect(() => {
     if (bookmarks.size === 0) { setListings([]); setLoading(false); return }
@@ -41,30 +43,23 @@ export default function Cart({ session, bookmarks, onClose, onRemove }) {
   }, [bookmarks])
 
   const handleRemove = async (id) => {
-    await supabase.from('bookmarks').delete().eq('listing_id', id)
+    if (emailToUse) {
+      await supabase.from('subscribers').delete().eq('listing_id', id).eq('email', emailToUse)
+    }
     setListings(prev => prev.filter(l => l.id !== id))
     onRemove(id)
   }
 
   const handleSendEmail = async () => {
-    if (!session || listings.length === 0) return
+    if (!emailToUse || listings.length === 0) return
     setSending(true)
     setError(null)
 
-    const urgent = listings.filter(l => {
-      const d = daysLeft(l.deadline)
-      return d !== null && d >= 0 && d <= 5
-    })
-    const upcoming = listings.filter(l => {
-      const d = daysLeft(l.deadline)
-      return d !== null && d > 5 && d <= 30
-    })
-    const rest = listings.filter(l => {
-      const d = daysLeft(l.deadline)
-      return d === null || d > 30 || d < 0
-    })
+    const urgent = listings.filter(l => { const d = daysLeft(l.deadline); return d !== null && d >= 0 && d <= 5 })
+    const upcoming = listings.filter(l => { const d = daysLeft(l.deadline); return d !== null && d > 5 && d <= 30 })
+    const rest = listings.filter(l => { const d = daysLeft(l.deadline); return d === null || d > 30 || d < 0 })
 
-    const typeLabels = { phd: 'PhD', postdoc: 'Postdoc', paper: 'Paper Call', grant: 'Grant', conf: 'Conference' }
+    const typeLabels = { phd: 'PhD', msc: 'MSc', postdoc: 'Postdoc', paper: 'Paper Call', grant: 'Grant', conf: 'Conference' }
 
     const cardHtml = (l) => {
       const d = daysLeft(l.deadline)
@@ -91,7 +86,7 @@ export default function Cart({ session, bookmarks, onClose, onRemove }) {
         <div style="font-size:13px;color:#7f1d1d;margin-top:4px;">These opportunities are closing very soon.</div>
       </div>
       ${urgent.map(cardHtml).join('')}
-      <div style="font-family:Georgia,serif;font-size:15px;font-weight:600;color:#1a1612;margin:20px 0 12px;">📅 Coming up in the next 30 days</div>
+      ${upcoming.length > 0 ? '<div style="font-family:Georgia,serif;font-size:15px;font-weight:600;color:#1a1612;margin:20px 0 12px;">📅 Coming up in the next 30 days</div>' : ''}
     ` : ''
 
     const upcomingSection = upcoming.map(cardHtml).join('')
@@ -125,12 +120,12 @@ export default function Cart({ session, bookmarks, onClose, onRemove }) {
           </div>
           <div style="text-align:center;font-size:11px;color:#aaa;padding:0 0 24px;">
             You are receiving this because you saved opportunities on Alaye.<br>
-            Visit <a href="https://alaye-agent.live" style="color:#0f6e56;">alaye-navy.vercel.app</a> to manage your saved items.
+            Visit <a href="https://alaye-agent.live" style="color:#0f6e56;">alaye-agent.live</a> to manage your saved items.
           </div>
         </div>
       </body>
       </html>`
-      
+
     try {
       const response = await fetch(
         `${process.env.REACT_APP_SUPABASE_URL}/functions/v1/email-reminder`,
@@ -141,18 +136,16 @@ export default function Cart({ session, bookmarks, onClose, onRemove }) {
             'Authorization': `Bearer ${process.env.REACT_APP_SUPABASE_ANON_KEY}`
           },
           body: JSON.stringify({
-            to: session.user.email,
+            to: emailToUse,
             subject: `Alaye — Your ${listings.length} saved opportunit${listings.length !== 1 ? 'ies' : 'y'}${urgent.length > 0 ? ' 🚨 ' + urgent.length + ' closing soon!' : ''}`,
             html
           })
         }
       )
-
       const data = await response.json()
-
       if (response.ok && data.success) {
         setEmailSent(true)
-        showSuccess()
+        setTimeout(() => setEmailSent(false), 5000)
       } else {
         setError(data.error || 'Failed to send email. Try again.')
       }
@@ -160,11 +153,6 @@ export default function Cart({ session, bookmarks, onClose, onRemove }) {
       setError('Network error. Please try again.')
     }
     setSending(false)
-  }
-
-  const showSuccess = () => {
-    setEmailSent(true)
-    setTimeout(() => setEmailSent(false), 5000)
   }
 
   return (
@@ -184,14 +172,11 @@ export default function Cart({ session, bookmarks, onClose, onRemove }) {
         </button>
       </div>
 
-      {listings.length > 0 && (
+      {emailToUse && listings.length > 0 && (
         <div style={{ background: '#fef9ec', border: '0.5px solid #f0e4b8', borderRadius: 'var(--radius)', padding: '10px 14px', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
           <div style={{ fontSize: 13 }}>
             <i className="ti ti-bell" aria-hidden="true" style={{ color: 'var(--gold)', marginRight: 6 }} />
-            <strong>{listings.length}</strong> saved opportunit{listings.length !== 1 ? 'ies' : 'y'}
-            {listings.filter(l => { const d = daysLeft(l.deadline); return d !== null && d >= 0 && d <= 5 }).length > 0 && (
-              <span style={{ color: '#dc2626', fontWeight: 600 }}> · {listings.filter(l => { const d = daysLeft(l.deadline); return d !== null && d >= 0 && d <= 5 }).length} closing soon!</span>
-            )}
+            Sending to <strong>{emailToUse}</strong>
           </div>
           <button
             onClick={handleSendEmail}
@@ -256,7 +241,7 @@ export default function Cart({ session, bookmarks, onClose, onRemove }) {
                   <button
                     onClick={() => handleRemove(l.id)}
                     style={{ background: 'none', border: '0.5px solid var(--border)', borderRadius: 'var(--radius)', padding: '4px 8px', cursor: 'pointer', fontSize: 12, color: 'var(--muted)', flexShrink: 0 }}
-                    title="Remove from cart"
+                    title="Remove from saved"
                   >
                     <i className="ti ti-x" aria-hidden="true" />
                   </button>
