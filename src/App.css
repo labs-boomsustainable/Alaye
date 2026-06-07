@@ -216,3 +216,6 @@ body {
   border-color: #dc2626;
   color: #dc2626;
 }
+
+/* MSc BADGE */
+.badge-msc { background: #fce7f3; color: #831843; }
