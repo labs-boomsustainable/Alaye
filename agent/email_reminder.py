@@ -188,4 +188,35 @@ def run_weekly_digest():
     emails = get_all_subscribers()
     sent = 0
     for email in emails:
-        listings = get_subscriber_listings(e
+        listings = get_subscriber_listings(email)
+        if not listings:
+            continue
+        html = build_email_html(listings, "weekly")
+        subject = f"Alaye — Your weekly opportunities digest ({len(listings)} saved)"
+        if send_email(email, subject, html):
+            sent += 1
+    print(f"✅ Weekly digest complete. Sent to {sent} subscribers.")
+
+def run_urgent_alerts():
+    """Send urgent alerts for deadlines within 5 days."""
+    print(f"\n🚨 Urgent alerts check at {datetime.now(timezone.utc).isoformat()}")
+    emails = get_all_subscribers()
+    sent = 0
+    for email in emails:
+        listings = get_subscriber_listings(email)
+        urgent = [l for l in listings if days_left(l.get("deadline")) is not None and 0 <= days_left(l.get("deadline")) <= 5]
+        if not urgent:
+            continue
+        html = build_email_html(urgent, "urgent")
+        subject = f"🚨 Alaye — {len(urgent)} deadline{'s' if len(urgent) > 1 else ''} closing in 5 days!"
+        if send_email(email, subject, html):
+            sent += 1
+    print(f"✅ Urgent alerts complete. Sent to {sent} subscribers.")
+
+if __name__ == "__main__":
+    import sys
+    mode = sys.argv[1] if len(sys.argv) > 1 else "weekly"
+    if mode == "urgent":
+        run_urgent_alerts()
+    else:
+        run_weekly_digest()
