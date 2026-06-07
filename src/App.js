@@ -63,7 +63,7 @@ export default function App() {
   const [showBanner, setShowBanner] = useState(() => !localStorage.getItem('alaye_visited'))
   const [editListing, setEditListing] = useState(null)
   const [bookmarks, setBookmarks] = useState(new Set())
-  const [userEmail, setUserEmail] = useState(() => localStorage.getItem('alaye_email') || '')
+  const [userEmail] = useState(() => localStorage.getItem('alaye_email') || '')
   const [form, setForm] = useState({
     type: 'phd', title: '', institution: '', location: '',
     region: 'global', field: '', deadline: '', funding: '', description: '', link: ''
