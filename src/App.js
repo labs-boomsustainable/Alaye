@@ -252,9 +252,7 @@ export default function App() {
       {showBanner && !session && (
         <div className="onboarding-banner">
           <p>
-            <strong>Welcome to Alaye.</strong> A free, AI-powered board for global academic opportunities —
-            PhD positions, postdocs, MSc scholarships, grants and conferences. No login needed to browse.
-            Sign in to save opportunities and get deadline reminders.
+            <strong>Welcome to Alaye.</strong> A public access group for unconventional opportunities — those that exist within closed networks, fellowships, alumni circles, and youth communities, now open to everyone. One click to contribute. Sign in to save bookmarked opportunities, and get deadline reminders.
           </p>
           <button onClick={handleDismissBanner}>Got it ✓</button>
         </div>
