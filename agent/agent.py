@@ -329,7 +329,9 @@ def run_agent():
     all_opportunities = []
     opportunities = extract_with_claude(all_items, "Mixed sources")
 
-    current_year = datetime.now(timezone.utc).year
+current_year = datetime.now(timezone.utc).year
+    old_years = [str(y) for y in range(2018, current_year)]
+
     for opp in opportunities:
         title = opp.get("title", "").strip()
         if not title or not opp.get("institution"):
@@ -337,20 +339,26 @@ def run_agent():
         if title.lower() in existing_titles:
             print(f"   ⏭️  Duplicate: {title[:50]}")
             continue
+
+        # reject if any old year appears in title or description
+        title_and_desc = title + " " + (opp.get("description") or "")
+        if any(yr in title_and_desc for yr in old_years):
+            print(f"   ⏭️  Old listing skipped: {title[:50]}")
+            continue
+
+        # reject if deadline is in the past
         deadline = opp.get("deadline")
         if deadline:
             try:
                 if int(deadline[:4]) < current_year:
-                    print(f"   ⏭️  Expired: {title[:50]}")
+                    print(f"   ⏭️  Expired deadline: {title[:50]}")
                     continue
             except:
                 pass
-        if str(current_year - 1) in title or str(current_year - 2) in title:
-            print(f"   ⏭️  Old listing: {title[:50]}")
-            continue
+
         all_opportunities.append(opp)
         existing_titles.add(title.lower())
-
+        
     print(f"\n📦 Unique opportunities found: {len(all_opportunities)}")
 
     posted = 0
