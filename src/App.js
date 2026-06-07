@@ -64,8 +64,6 @@ export default function App() {
   const [editListing, setEditListing] = useState(null)
   const [bookmarks, setBookmarks] = useState(new Set())
   const [userEmail, setUserEmail] = useState(() => localStorage.getItem('alaye_email') || '')
-  const [emailPrompt, setEmailPrompt] = useState(null)
-  const [emailInput, setEmailInput] = useState('')
   const [form, setForm] = useState({
     type: 'phd', title: '', institution: '', location: '',
     region: 'global', field: '', deadline: '', funding: '', description: '', link: ''
@@ -137,17 +135,6 @@ const handleBookmark = async (id) => {
       }
       showToast('Saved!')
     }
-  }
-
-  const handleEmailSubmit = async () => {
-    const email = emailInput.trim().toLowerCase()
-    if (!email || !email.includes('@')) { showToast('Please enter a valid email'); return }
-    localStorage.setItem('alaye_email', email)
-    setUserEmail(email)
-    await supabase.from('subscribers').insert([{ email, listing_id: emailPrompt }])
-    setBookmarks(prev => new Set([...prev, emailPrompt]))
-    setEmailPrompt(null)
-    showToast('Saved! You will get deadline reminders.')
   }
 
   const handleSignOut = async () => {
