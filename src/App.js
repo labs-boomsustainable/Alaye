@@ -60,6 +60,7 @@ export default function App() {
   const [showAuth, setShowAuth] = useState(false)
   const [showCart, setShowCart] = useState(false)
   const [showAdmin, setShowAdmin] = useState(false)
+  const [showBanner, setShowBanner] = useState(() => !localStorage.getItem('alaye_visited'))
   const [editListing, setEditListing] = useState(null)
   const [bookmarks, setBookmarks] = useState(new Set())
   const [form, setForm] = useState({
@@ -177,6 +178,21 @@ export default function App() {
     fetchListings()
   }
 
+  const handleDismissBanner = () => {
+    localStorage.setItem('alaye_visited', 'true')
+    setShowBanner(false)
+  }
+
+  const handleShare = (listing) => {
+    const text = `${listing.title} at ${listing.institution} — via Alaye`
+    const url = `https://alaye-agent.live`
+    if (navigator.share) {
+      navigator.share({ title: listing.title, text, url })
+    } else {
+      navigator.clipboard.writeText(`${text}\n${url}`)
+      showToast('Link copied to clipboard!')
+    }
+  }
   const openModal = () => {
     if (!session) { setShowAuth(true); return }
     setEditListing(null)
@@ -232,6 +248,17 @@ export default function App() {
           <div><div className="stat-val">Free</div><div className="stat-lbl">Open source</div></div>
         </div>
       </div>
+
+      {showBanner && !session && (
+        <div className="onboarding-banner">
+          <p>
+            <strong>Welcome to Alaye.</strong> A free, AI-powered board for global academic opportunities —
+            PhD positions, postdocs, MSc scholarships, grants and conferences. No login needed to browse.
+            Sign in to save opportunities and get deadline reminders.
+          </p>
+          <button onClick={handleDismissBanner}>Got it ✓</button>
+        </div>
+      )}
 
       <div className="tabs">
         {TYPES.map(t => (
@@ -335,7 +362,16 @@ export default function App() {
                   ? <a className="card-link" href={l.link} target="_blank" rel="noopener noreferrer">View opportunity <i className="ti ti-arrow-up-right" aria-hidden="true" style={{ fontSize: 12 }} /></a>
                   : <span />
                 }
-                <span className="card-byline">{l.source === 'agent' ? '🤖 AI agent' : '👤 Community'} · {timeAgo(l.created_at)}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span className="card-byline">{l.source === 'agent' ? '🤖 AI agent' : '👤 Community'} · {timeAgo(l.created_at)}</span>
+                  <button
+                    onClick={() => handleShare(l)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--muted)', padding: 0 }}
+                    title="Share this opportunity"
+                  >
+                    <i className="ti ti-share" aria-hidden="true" />
+                  </button>
+                </div>
               </div>
             </div>
           )
@@ -449,6 +485,21 @@ export default function App() {
       )}
 
       {toast && <div className="toast">{toast}</div>}
+
+      <div className="alaye-footer">
+        <div style={{ marginBottom: 6 }}>
+          <strong style={{ fontFamily: 'Lora, serif' }}>Alaye<span style={{ color: 'var(--gold)' }}>.</span></strong>
+          {' '}— Global Academic Opportunities
+        </div>
+        <div>
+          Free & open source ·{' '}
+          <a href="https://github.com/labs-boomsustainable/Alaye" target="_blank" rel="noopener noreferrer">GitHub</a>
+          {' '}·{' '}
+          <a href="mailto:labs@boomsustainable.org">Contact</a>
+          {' '}·{' '}
+          Built by <a href="https://boomsustainable.org" target="_blank" rel="noopener noreferrer">Boom Sustainable</a>
+        </div>
+      </div>
     </div>
   )
 }
