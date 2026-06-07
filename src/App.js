@@ -61,6 +61,8 @@ export default function App() {
   const [showCart, setShowCart] = useState(false)
   const [showAdmin, setShowAdmin] = useState(false)
   const [showBanner, setShowBanner] = useState(() => !localStorage.getItem('alaye_visited'))
+  const [page, setPage] = useState(1)
+  const PER_PAGE = 10
   const [editListing, setEditListing] = useState(null)
   const [bookmarks, setBookmarks] = useState(new Set())
   const [userEmail] = useState(() => localStorage.getItem('alaye_email') || '')
@@ -104,10 +106,11 @@ export default function App() {
     if (query) q = q.or(`title.ilike.%${query}%,institution.ilike.%${query}%,field.ilike.%${query}%,location.ilike.%${query}%`)
     if (sort === 'newest') q = q.order('created_at', { ascending: false })
     else q = q.order('deadline', { ascending: true })
+    q = q.range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
     const { data, error } = await q
     if (!error) setListings(data || [])
     setLoading(false)
-  }, [tab, region, query, sort])
+  }, [tab, region, query, sort, page])
 
   useEffect(() => { fetchListings() }, [fetchListings])
 
@@ -279,7 +282,7 @@ const handleBookmark = async (id) => {
 
       <div className="tabs">
         {TYPES.map(t => (
-          <button key={t.key} className={`tab${tab === t.key ? ' active' : ''}`} onClick={() => setTab(t.key)}>{t.label}</button>
+          <button key={t.key} className={`tab${tab === t.key ? ' active' : ''}`} onClick={() => { setTab(t.key); setPage(1) }}>{t.label}</button>
         ))}
       </div>
 
@@ -298,7 +301,7 @@ const handleBookmark = async (id) => {
 
       <div className="filters">
         {REGIONS.map(r => (
-          <button key={r.key} className={`chip${region === r.key ? ' active' : ''}`} onClick={() => setRegion(r.key)}>{r.label}</button>
+          <button key={r.key} className={`chip${region === r.key ? ' active' : ''}`} onClick={() => { setRegion(r.key); setPage(1) }}>{r.label}</button>
         ))}
       </div>
 
@@ -392,6 +395,24 @@ const handleBookmark = async (id) => {
             </div>
           )
         })}
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, margin: '1.5rem 0', flexWrap: 'wrap' }}>
+        <button
+          onClick={() => setPage(p => Math.max(1, p - 1))}
+          disabled={page === 1}
+          style={{ background: page === 1 ? 'var(--warm)' : 'var(--ink)', color: page === 1 ? 'var(--muted)' : '#f7f3ec', border: 'none', padding: '8px 18px', borderRadius: 'var(--radius)', fontFamily: 'inherit', fontSize: 13, cursor: page === 1 ? 'not-allowed' : 'pointer' }}
+        >
+          ← Previous
+        </button>
+        <span style={{ fontSize: 13, color: 'var(--muted)' }}>Page {page}</span>
+        <button
+          onClick={() => setPage(p => p + 1)}
+          disabled={listings.length < PER_PAGE}
+          style={{ background: listings.length < PER_PAGE ? 'var(--warm)' : 'var(--ink)', color: listings.length < PER_PAGE ? 'var(--muted)' : '#f7f3ec', border: 'none', padding: '8px 18px', borderRadius: 'var(--radius)', fontFamily: 'inherit', fontSize: 13, cursor: listings.length < PER_PAGE ? 'not-allowed' : 'pointer' }}
+        >
+          Next →
+        </button>
       </div>
 
       {showAuth && (
