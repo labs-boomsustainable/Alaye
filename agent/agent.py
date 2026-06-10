@@ -19,34 +19,52 @@ HEADERS = {
     "Cache-Control": "no-cache",
 }
 
-def fetch_wikicfp():
-    """Fetch conference CFPs from WikiCFP."""
-    print("   Fetching WikiCFP...")
+def fetch_wikicfp_current():
+    """Fetch ONLY current year CFPs from WikiCFP search."""
+    print("   Fetching WikiCFP current...")
     results = []
     current_year = datetime.now(timezone.utc).year
+    current_month = datetime.now(timezone.utc).month
     try:
-        url = f"http://www.wikicfp.com/cfp/call?conference=international&year={current_year}"
+        url = f"http://www.wikicfp.com/cfp/call?conference=&orderby=date&when={current_year}"
         r = requests.get(url, headers=HEADERS, timeout=15)
         soup = BeautifulSoup(r.text, "html.parser")
         rows = soup.find_all("tr")
+        added = 0
         for row in rows:
+            if added >= 15:
+                break
             cells = row.find_all("td")
             if len(cells) >= 3:
                 title_el = cells[0].find("a")
                 deadline_text = cells[2].get_text(strip=True) if len(cells) > 2 else ""
                 location_text = cells[1].get_text(strip=True) if len(cells) > 1 else ""
-                if title_el:
-                    if str(current_year - 1) in deadline_text or str(current_year - 2) in deadline_text:
-                        continue
-                    if str(current_year - 1) in title_el.get_text() or str(current_year - 2) in title_el.get_text():
-                        continue
-                    link = "http://www.wikicfp.com" + title_el.get("href", "")
-                    results.append({
-                        "source": "WikiCFP",
-                        "link": link,
-                        "text": f"Conference CFP: {title_el.get_text(strip=True)}. Submission Deadline: {deadline_text}. Location: {location_text}. Year: {current_year}"
-                    })
-        print(f"   WikiCFP: {len(results)} items")
+                if not title_el:
+                    continue
+                title_text = title_el.get_text(strip=True)
+                old_years = [str(y) for y in range(2018, current_year)]
+                if any(yr in title_text for yr in old_years):
+                    continue
+                if any(yr in deadline_text for yr in old_years):
+                    continue
+                if deadline_text:
+                    try:
+                        dl_year = int(deadline_text.strip()[-4:])
+                        if dl_year < current_year:
+                            continue
+                        if dl_year == current_year:
+                            dl_month = deadline_text.strip()
+                            pass
+                    except:
+                        pass
+                link = "http://www.wikicfp.com" + title_el.get("href", "")
+                results.append({
+                    "source": "WikiCFP",
+                    "link": link,
+                    "text": f"Conference CFP {current_year}: {title_text}. Submission Deadline: {deadline_text}. Location: {location_text}. Year: {current_year}"
+                })
+                added += 1
+        print(f"   WikiCFP: {len(results)} current items")
     except Exception as e:
         print(f"   WikiCFP error: {e}")
     return results
@@ -312,7 +330,7 @@ def run_agent():
     existing_titles = get_existing_titles()
     all_items = []
 
-    all_items += fetch_wikicfp()
+    all_items += fetch_wikicfp_current()
     time.sleep(2)
     all_items += fetch_nature_jobs()
     time.sleep(2)
@@ -336,7 +354,15 @@ def run_agent():
         title = opp.get("title", "").strip()
         if not title or not opp.get("institution"):
             continue
-        if title.lower() in existing_titles:
+        title_lower = title.lower()
+        title_words = set(title_lower.split())
+        is_duplicate = False
+        for existing in existing_titles:
+            existing_words = set(existing.split())
+            if len(title_words) > 3 and len(title_words & existing_words) / len(title_words) > 0.7:
+                is_duplicate = True
+                break
+        if is_duplicate:
             print(f"   ⏭️  Duplicate: {title[:50]}")
             continue
 
