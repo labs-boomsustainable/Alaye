@@ -114,7 +114,7 @@ export default function Admin({ onClose }) {
     if (!error) { showToast(current ? 'Unverified' : 'Verified!'); fetchData() }
   }
 
-  const handleTriggerAgent = async () => {
+const handleTriggerAgent = async () => {
     setTriggering(true)
     setTriggerResult(null)
     try {
@@ -125,17 +125,19 @@ export default function Admin({ onClose }) {
           headers: {
             'Accept': 'application/vnd.github+json',
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${process.env.REACT_APP_GITHUB_TOKEN}`
           },
           body: JSON.stringify({ ref: 'main', inputs: { job: 'agent' } })
         }
       )
       if (response.status === 204) {
-        setTriggerResult('✅ Agent triggered! Check GitHub Actions for progress.')
+        setTriggerResult('✅ Agent triggered! Check GitHub Actions in 30 seconds.')
       } else {
-        setTriggerResult('⚠️ Could not trigger agent. Run manually from GitHub Actions.')
+        const data = await response.json()
+        setTriggerResult(`⚠️ Error: ${data.message || 'Could not trigger agent.'}`)
       }
     } catch (e) {
-      setTriggerResult('⚠️ Could not trigger agent. Run manually from GitHub Actions.')
+      setTriggerResult('⚠️ Network error. Try from GitHub Actions directly.')
     }
     setTriggering(false)
   }
