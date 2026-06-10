@@ -354,15 +354,13 @@ def run_agent():
         title = opp.get("title", "").strip()
         if not title or not opp.get("institution"):
             continue
-if title.lower() in existing_titles:
+        if title.lower() in existing_titles:
             print(f"   ⏭️  Duplicate: {title[:50]}")
             continue
-
         title_and_desc = title + " " + (opp.get("description") or "")
         if any(yr in title_and_desc for yr in old_years):
             print(f"   ⏭️  Old listing skipped: {title[:50]}")
             continue
-
         deadline = opp.get("deadline")
         if deadline:
             try:
@@ -371,7 +369,6 @@ if title.lower() in existing_titles:
                     continue
             except:
                 pass
-
         all_opportunities.append(opp)
         existing_titles.add(title.lower())
         
