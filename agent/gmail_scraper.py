@@ -205,7 +205,7 @@ def run_gmail_scraper():
 
     for group in GOOGLE_GROUPS:
         print(f"\n🔍 Scanning emails from: {group}")
-        query = f"from:{group} newer_than:7d"
+        query = f"from:{group} newer_than:14d"
         messages = search_emails(access_token, query, max_results=10)
 
         if not messages:
