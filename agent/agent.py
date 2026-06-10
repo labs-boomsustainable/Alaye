@@ -354,15 +354,7 @@ def run_agent():
         title = opp.get("title", "").strip()
         if not title or not opp.get("institution"):
             continue
-        title_lower = title.lower()
-        title_words = set(title_lower.split())
-        is_duplicate = False
-        for existing in existing_titles:
-            existing_words = set(existing.split())
-            if len(title_words) > 3 and len(title_words & existing_words) / len(title_words) > 0.7:
-                is_duplicate = True
-                break
-        if is_duplicate:
+if title.lower() in existing_titles:
             print(f"   ⏭️  Duplicate: {title[:50]}")
             continue
 
