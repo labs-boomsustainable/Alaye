@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
+import { Analytics } from '@vercel/analytics/react'
 import { supabase } from './supabaseClient'
 import Auth from './Auth'
 import Cart from './Cart'
@@ -548,6 +549,7 @@ const handleBookmark = async (id) => {
           Built by <a href="https://boomsustainable.org" target="_blank" rel="noopener noreferrer">Boom Sustainable</a>
         </div>
       </div>
+      <Analytics />
     </div>
   )
 }
